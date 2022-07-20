@@ -1240,6 +1240,14 @@ Extract
 \end_layout
 
 \begin_layout Enumerate
+Initialize all 
+\begin_inset Formula $\nu=0$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Enumerate
 
 \series bold
 if 
@@ -1253,19 +1261,6 @@ if
 
 \begin_deeper
 \begin_layout Enumerate
-
-\series bold
-Loop 
-\series default
-over 
-\begin_inset Formula $\sigma$
-\end_inset
-
-
-\end_layout
-
-\begin_deeper
-\begin_layout Itemize
 
 \series bold
 Loop
@@ -1321,15 +1316,11 @@ Calculate the
 \end_inset
 
 ).
- They are just two numbers that we store as 
-\begin_inset Formula $m_{1}$
+ They are just four numbers that we store as 
+\begin_inset Formula $m_{1},\dots,m_{4}$
 \end_inset
 
- and 
-\begin_inset Formula $m_{2}$
-\end_inset
-
-
+ 
 \end_layout
 
 \begin_layout Itemize
@@ -1346,27 +1337,19 @@ over
 
 \begin_deeper
 \begin_layout Enumerate
-Use the precalculated values of 
-\begin_inset Formula $a$
+\begin_inset Formula $\nu(t_{i},t_{j},\tau_{i},1)=\gamma(t_{i})\left[a(t_{i}-t_{j}-1)m_{1}-\phi(t_{i})a(t_{i}-t_{j})m_{2}\right]$
 \end_inset
 
 
 \end_layout
 
 \begin_layout Enumerate
-Sum and multiply with the 
-\begin_inset Formula $\mu$
-\end_inset
-
- part.
- Something like: 
-\begin_inset Formula $\nu=a_{1}m_{1}+\phi a_{2}m_{2}$
+\begin_inset Formula $\nu(t_{i},t_{j},\tau_{i},2)=\nu(t_{i},t_{j},\tau_{i},1)+\gamma(t_{i})\left[\phi(t_{i})a(t_{i}-t_{j})m_{4}-a(t_{i}-t_{j}-1)m_{3}\right]$
 \end_inset
 
 
 \end_layout
 
-\end_deeper
 \end_deeper
 \end_deeper
 \end_deeper
@@ -1383,14 +1366,6 @@ else if
 \end_layout
 
 \begin_deeper
-\begin_layout Enumerate
-Initialize all 
-\begin_inset Formula $\nu=0$
-\end_inset
-
-
-\end_layout
-
 \begin_layout Enumerate
 
 \series bold
