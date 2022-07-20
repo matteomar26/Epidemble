@@ -753,7 +753,7 @@ status open
 
 \begin_layout Plain Layout
 \begin_inset Graphics
-	filename graph.png
+	filename ../BP_Ens_SI/graph.png
 	width 90text%
 
 \end_inset
@@ -1102,7 +1102,7 @@ So in the case in which it is a zero patient is very simple.
 
 \end_inset
 
-And we also observe that, alway in the case 
+And we also observe that, always in the case 
 \begin_inset Formula $x_{i}^{0*}=S$
 \end_inset
 
@@ -1120,7 +1120,7 @@ And we also observe that, alway in the case
 \text{} & \nu(t_{i},t_{j},\tau_{i},1)=\\
  & =\gamma(t_{i})\xi_{i}(t_{i},\tau_{i})\times\\
  & \times\Biggl(a(t_{i}-t_{j}-1)\prod_{k=1}^{d-1}\sum_{\sigma_{k}=1}^{2}\mu_{k}(t_{i},1,\tau_{i},\sigma_{k})+\\
- & -\phi(t_{i})a(t_{i}-t_{j})\prod_{k=1}^{d-1}\sum_{\sigma_{k}=1}^{2}\mu_{k}(t_{i},1,\tau_{i},\sigma_{k})\Biggr)
+ & -\phi(t_{i})a(t_{i}-t_{j})\prod_{k=1}^{d-1}\sum_{\sigma_{k}=1}^{2}\mu_{k}(t_{i},0,\tau_{i},\sigma_{k})\Biggr)
 \end{align*}
 
 \end_inset
@@ -1130,13 +1130,79 @@ And we also observe that, alway in the case
 \begin{align*}
 \text{} & \nu(t_{i},t_{j},\tau_{i},2)=\\
  & =\nu(t_{i},t_{j},\tau_{i},1)+\gamma(t_{i})\xi_{i}(t_{i},\tau_{i})\times\\
- & \times\Biggl(-a(t_{i}-t_{j}-1)1\left(\sigma=2\right)\prod_{k=1}^{d-1}\mu_{k}(t_{i},1,\tau_{i},2)+\\
- & +\phi(t_{i})a(t_{i}-t_{j})1\left(\sigma=2\right)\prod_{k=1}^{d-1}\mu_{k}(t_{i},0,\tau_{i},2)\Biggr)
+ & \times\Biggl(-a(t_{i}-t_{j}-1)\prod_{k=1}^{d-1}\mu_{k}(t_{i},1,\tau_{i},2)+\\
+ & +\phi(t_{i})a(t_{i}-t_{j})\prod_{k=1}^{d-1}\mu_{k}(t_{i},0,\tau_{i},2)\Biggr)
 \end{align*}
 
 \end_inset
 
-+ and 
+
+\end_layout
+
+\begin_layout Subsection
+Implementing the 
+\begin_inset Formula $\mu$
+\end_inset
+
+ function
+\end_layout
+
+\begin_layout Standard
+When the quantity 
+\begin_inset Formula $\nu$
+\end_inset
+
+ is calculated for all of its arguments we take it and obtain the 
+\begin_inset Formula $\mu$
+\end_inset
+
+:
+\begin_inset Formula 
+\begin{align*}
+ & \mu(t_{j},c,\tau_{j},\sigma):=\\
+ & =\sum_{t_{i}}a(t_{j}-t_{i}-c)\begin{cases}
+\sum_{\tau_{i}<\tau_{j}-s_{ij}^{*}}\nu(t_{i},t_{j},\tau_{i},2) & \sigma=0\\
+\nu(t_{i},t_{j},\tau_{j}-s_{ij}^{*},2) & \sigma=1\\
+\sum_{\tau_{i}>\tau_{j}-s_{ij}^{*}}\nu\left(t_{i},t_{j},\tau_{i},1+\text{sign}\left(\tau_{j}-\tau_{i}+s_{ji}^{*}\right)\right) & \sigma=2
+\end{cases}
+\end{align*}
+
+\end_inset
+
+Keeping implicitly the variables 
+\begin_inset Formula $t_{i},t_{j}$
+\end_inset
+
+, we define :
+\begin_inset Formula 
+\[
+\Sigma_{\sigma}(k,t_{i},t_{j}):=\sum_{\tau_{i}=0}^{k}\nu(t_{i},t_{j},\tau_{i},\sigma)
+\]
+
+\end_inset
+
+and:
+\begin_inset Formula 
+\[
+\sigma_{ji}^{*}:=1+\text{sign}\left(\tau_{j}-\tau_{i}+s_{ji}^{*}\right)
+\]
+
+\end_inset
+
+we have:
+\begin_inset Formula 
+\begin{align*}
+ & \mu(t_{j},c,\tau_{j},\sigma):=\\
+ & =\sum_{t_{i}}a(t_{j}-t_{i}-c)\begin{cases}
+\Sigma_{2}(\tau_{j}-s_{ij}^{*},t_{i},t_{j}) & \sigma=0\\
+\nu(t_{i},t_{j},\tau_{j}-s_{ij}^{*},2) & \sigma=1\\
+\Sigma_{\sigma_{ji}^{*}}(T+1,t_{i},t_{j})-\Sigma_{\sigma_{ji}^{*}}(\tau_{j}-s_{ij}^{*},t_{i},t_{j}) & \sigma=2
+\end{cases}
+\end{align*}
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
@@ -1162,35 +1228,21 @@ Extract
 \begin_inset Formula $\left(x_{i}^{*0},s_{ji}^{*},s_{ij}^{*}\right)$
 \end_inset
 
+ and 
+\begin_inset Formula $d-1$
+\end_inset
 
+ 
+\begin_inset Formula $\mu$
+\end_inset
+
+'s from the population.
 \end_layout
 
 \begin_layout Enumerate
 
 \series bold
 if 
-\series default
-
-\begin_inset Formula $x_{i}^{*0}=S$
-\end_inset
-
-
-\end_layout
-
-\begin_deeper
-\begin_layout Enumerate
-Calculate the 
-\begin_inset Formula $\nu$
-\end_inset
-
-brute force (nono maybe we can even do better, but it is still super fast)
-\end_layout
-
-\end_deeper
-\begin_layout Enumerate
-
-\series bold
-else if 
 \series default
 
 \begin_inset Formula $x_{i}^{*0}=I$
@@ -1201,23 +1253,336 @@ else if
 
 \begin_deeper
 \begin_layout Enumerate
-Loop over 
+
+\series bold
+Loop 
+\series default
+over 
+\begin_inset Formula $\sigma$
+\end_inset
+
+
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+
+\series bold
+Loop
+\series default
+ over 
 \begin_inset Formula $\tau_{i}$
+\end_inset
+
+ and 
+\begin_inset Formula $t_{i}$
+\end_inset
+
+
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+
+\series bold
+if 
+\begin_inset Formula $\xi_{i}(t_{i},\tau_{i})==0$
+\end_inset
+
+
+\end_layout
+
+\begin_deeper
+\begin_layout Enumerate
+\begin_inset Formula $\nu=0$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+continue
+\end_layout
+
+\end_deeper
+\begin_layout Itemize
+Calculate the 
+\begin_inset Formula $\prod_{k}$
+\end_inset
+
+ of the 
+\begin_inset Formula $\mu_{k}$
+\end_inset
+
+'s (or sums over 
+\begin_inset Formula $\mu_{k}$
+\end_inset
+
+).
+ They are just two numbers that we store as 
+\begin_inset Formula $m_{1}$
+\end_inset
+
+ and 
+\begin_inset Formula $m_{2}$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Itemize
+
+\series bold
+Loop 
+\series default
+over 
+\begin_inset Formula $t_{j}$
+\end_inset
+
+
+\end_layout
+
+\begin_deeper
+\begin_layout Enumerate
+Use the precalculated values of 
+\begin_inset Formula $a$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Enumerate
+Sum and multiply with the 
+\begin_inset Formula $\mu$
+\end_inset
+
+ part.
+ Something like: 
+\begin_inset Formula $\nu=a_{1}m_{1}+\phi a_{2}m_{2}$
 \end_inset
 
 
 \end_layout
 
 \end_deeper
+\end_deeper
+\end_deeper
+\end_deeper
+\begin_layout Enumerate
+
+\series bold
+else if 
+\series default
+
+\begin_inset Formula $x_{i}^{*0}=S$
+\end_inset
+
+
+\end_layout
+
+\begin_deeper
+\begin_layout Enumerate
+Initialize all 
+\begin_inset Formula $\nu=0$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+Loop
+\series default
+ over 
+\begin_inset Formula $\tau_{i}$
+\end_inset
+
+ and 
+\begin_inset Formula $t_{i}$
+\end_inset
+
+
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+
+\series bold
+if 
+\begin_inset Formula $\xi_{i}(t_{i},\tau_{i})==0$
+\end_inset
+
+
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+\begin_inset Formula $\nu=0$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Itemize
+
+\series bold
+continue
+\end_layout
+
+\end_deeper
+\begin_layout Itemize
+Calculate the 
+\begin_inset Formula $\nu$
+\end_inset
+
+ and this value is the same for all 
+\begin_inset Formula $\sigma$
+\end_inset
+
+ and for 
+\begin_inset Formula $t_{j}=0$
+\end_inset
+
+ 
+\end_layout
+
+\end_deeper
+\end_deeper
+\begin_layout Enumerate
+
+\series bold
+Loop 
+\series default
+over 
+\begin_inset Formula $t_{j}$
+\end_inset
+
+
+\end_layout
+
+\begin_deeper
+\begin_layout Enumerate
+
+\series bold
+Loop 
+\series default
+over 
+\begin_inset Formula $t_{i}$
+\end_inset
+
+
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+Pre-Calculate 
+\begin_inset Formula $\Sigma_{\sigma}(k,t_{i},t_{j}):=\sum_{\tau_{i}=0}^{k}\nu(t_{i},t_{j},\tau_{i},\sigma)$
+\end_inset
+
+ for 
+\begin_inset Formula $\sigma=0,1,2$
+\end_inset
+
+ and 
+\begin_inset Formula $k=0,\dots,T+1$
+\end_inset
+
+
+\end_layout
+
+\end_deeper
+\begin_layout Enumerate
+
+\series bold
+Loop 
+\series default
+over 
+\begin_inset Formula $\tau_{j}$
+\end_inset
+
+
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+
+\series bold
+Loop 
+\series default
+over 
+\begin_inset Formula $c$
+\end_inset
+
+
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+Set 
+\begin_inset Formula $\mu(t_{j},c,\tau_{j},\sigma)=0$
+\end_inset
+
+ for every 
+\begin_inset Formula $\sigma$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Itemize
+
+\series bold
+Loop 
+\series default
+over 
+\begin_inset Formula $t_{i}$
+\end_inset
+
+
+\end_layout
+
+\begin_deeper
+\begin_layout Enumerate
+\begin_inset Formula $\mu(t_{j},c,\tau_{j},0)+=a\Sigma_{2}$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Enumerate
+\begin_inset Formula $\mu(t_{j},c,\tau_{j},1)+=\nu$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Enumerate
+\begin_inset Formula $\mu(t_{j},c,\tau_{j},2)+=a\times(\Delta\Sigma)$
+\end_inset
+
+
+\end_layout
+
+\end_deeper
+\end_deeper
+\end_deeper
+\end_deeper
+\begin_layout Enumerate
+Update 
+\begin_inset Formula $\mu$
+\end_inset
+
+ to the population.
+\end_layout
+
 \begin_layout Plain Layout
 \begin_inset Caption Standard
 
 \begin_layout Plain Layout
-Calculation of 
-\begin_inset Formula $\nu$
-\end_inset
-
- function
+RS Epidemble Population Dynamics
 \end_layout
 
 \end_inset
