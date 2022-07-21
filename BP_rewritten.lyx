@@ -1176,7 +1176,7 @@ Keeping implicitly the variables
 , we define :
 \begin_inset Formula 
 \[
-\Sigma_{\sigma}(k,t_{i},t_{j}):=\sum_{\tau_{i}=0}^{k}\nu(t_{i},t_{j},\tau_{i},\sigma)
+\Sigma(t_{i},t_{j},k,\sigma):=\sum_{\tau_{i}=0}^{k}\nu(t_{i},t_{j},\tau_{i},\sigma)
 \]
 
 \end_inset
@@ -1189,14 +1189,29 @@ and:
 
 \end_inset
 
-we have:
+Let us study the term:
+\begin_inset Formula 
+\begin{align*}
+\sum_{\tau_{i}=\tau_{j}-s_{ij}^{*}+1}^{T+1}\nu\left(t_{i},t_{j},\tau_{i},1+\text{sign}\left(\tau_{j}-\tau_{i}+s_{ji}^{*}\right)\right) & =\\
+\sum_{\tau_{i}=\tau_{j}-s_{ij}^{*}+1}^{\tau_{j}+s_{ji}^{*}-1}\nu\left(t_{i},t_{j},\tau_{i},2\right)+\nu\left(t_{i},t_{j},\tau_{j}+s_{ji}^{*},1\right)+\sum_{\tau_{i}=\tau_{j}+s_{ji}^{*}+1}^{T+1}\nu\left(t_{i},t_{j},\tau_{i},0\right) & =\\
+\Sigma(t_{i},t_{j},\tau_{j}+s_{ji}^{*}-1,2)-\Sigma(t_{i},t_{j},\tau_{j}-s_{ij}^{*},2)+\nu\left(t_{i},t_{j},\tau_{j}+s_{ji}^{*},1\right) & +\\
++\Sigma(t_{i},t_{j},T+1,0)-\Sigma(t_{i},t_{j},\tau_{j}+s_{ji}^{*},0) & =:\Gamma(t_{i},t_{j},\tau_{j})
+\end{align*}
+
+\end_inset
+
+we have, substituting the temporary variable 
+\begin_inset Formula $\Gamma$
+\end_inset
+
+ (just to make the equation not too long):
 \begin_inset Formula 
 \begin{align*}
  & \mu(t_{j},c,\tau_{j},\sigma):=\\
  & =\sum_{t_{i}}a(t_{j}-t_{i}-c)\begin{cases}
-\Sigma_{2}(\tau_{j}-s_{ij}^{*},t_{i},t_{j}) & \sigma=0\\
+\Sigma(t_{i},t_{j},\tau_{j}-s_{ij}^{*}-1,2) & \sigma=0\\
 \nu(t_{i},t_{j},\tau_{j}-s_{ij}^{*},2) & \sigma=1\\
-\Sigma_{\sigma_{ji}^{*}}(T+1,t_{i},t_{j})-\Sigma_{\sigma_{ji}^{*}}(\tau_{j}-s_{ij}^{*},t_{i},t_{j}) & \sigma=2
+\Gamma(t_{i},t_{j},\tau_{j}) & \sigma=2
 \end{cases}
 \end{align*}
 
@@ -1253,7 +1268,7 @@ Initialize all
 if 
 \series default
 
-\begin_inset Formula $x_{i}^{*0}=I$
+\begin_inset Formula $x_{i}^{*0}=S$
 \end_inset
 
 
@@ -1359,7 +1374,7 @@ over
 else if 
 \series default
 
-\begin_inset Formula $x_{i}^{*0}=S$
+\begin_inset Formula $x_{i}^{*0}=I$
 \end_inset
 
 
@@ -1394,14 +1409,14 @@ if
 \end_layout
 
 \begin_deeper
-\begin_layout Itemize
+\begin_layout Enumerate
 \begin_inset Formula $\nu=0$
 \end_inset
 
 
 \end_layout
 
-\begin_layout Itemize
+\begin_layout Enumerate
 
 \series bold
 continue
@@ -1427,6 +1442,18 @@ Calculate the
 \end_deeper
 \end_deeper
 \begin_layout Enumerate
+Pre-Calculate 
+\begin_inset Formula $\Sigma(t_{i},t_{j},k,\sigma):=\sum_{\tau_{i}=0}^{k}\nu(t_{i},t_{j},\tau_{i},\sigma)$
+\end_inset
+
+ for 
+\begin_inset Formula $k=0,\dots,T+1$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Enumerate
 
 \series bold
 Loop 
@@ -1445,50 +1472,7 @@ over
 Loop 
 \series default
 over 
-\begin_inset Formula $t_{i}$
-\end_inset
-
-
-\end_layout
-
-\begin_deeper
-\begin_layout Itemize
-Pre-Calculate 
-\begin_inset Formula $\Sigma_{\sigma}(k,t_{i},t_{j}):=\sum_{\tau_{i}=0}^{k}\nu(t_{i},t_{j},\tau_{i},\sigma)$
-\end_inset
-
- for 
-\begin_inset Formula $\sigma=0,1,2$
-\end_inset
-
- and 
-\begin_inset Formula $k=0,\dots,T+1$
-\end_inset
-
-
-\end_layout
-
-\end_deeper
-\begin_layout Enumerate
-
-\series bold
-Loop 
-\series default
-over 
 \begin_inset Formula $\tau_{j}$
-\end_inset
-
-
-\end_layout
-
-\begin_deeper
-\begin_layout Itemize
-
-\series bold
-Loop 
-\series default
-over 
-\begin_inset Formula $c$
 \end_inset
 
 
@@ -1504,6 +1488,10 @@ Set
 \begin_inset Formula $\sigma$
 \end_inset
 
+ and 
+\begin_inset Formula $c$
+\end_inset
+
 
 \end_layout
 
@@ -1521,21 +1509,46 @@ over
 
 \begin_deeper
 \begin_layout Enumerate
-\begin_inset Formula $\mu(t_{j},c,\tau_{j},0)+=a\Sigma_{2}$
+Calculate 
+\begin_inset Formula $\Gamma(t_{i},t_{j},\tau_{j})$
+\end_inset
+
+ and save it as 
+\begin_inset Formula $\Gamma$
 \end_inset
 
 
 \end_layout
 
 \begin_layout Enumerate
-\begin_inset Formula $\mu(t_{j},c,\tau_{j},1)+=\nu$
+
+\series bold
+Loop 
+\series default
+over 
+\begin_inset Formula $c$
 \end_inset
 
 
 \end_layout
 
-\begin_layout Enumerate
-\begin_inset Formula $\mu(t_{j},c,\tau_{j},2)+=a\times(\Delta\Sigma)$
+\begin_deeper
+\begin_layout Itemize
+\begin_inset Formula $\mu(t_{j},c,\tau_{j},0)+=a(t_{j}-t_{i}-c)\Sigma(t_{i},t_{j},\tau_{j}-s_{ij}^{*}-1,2)$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Itemize
+\begin_inset Formula $\mu(t_{j},c,\tau_{j},1)+=a(t_{j}-t_{i}-c)\nu(t_{i},t_{j},\tau_{j}-s_{ij}^{*},2)$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Itemize
+\begin_inset Formula $\mu(t_{j},c,\tau_{j},2)+=a(t_{j}-t_{i}-c)\Gamma$
 \end_inset
 
 
