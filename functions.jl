@@ -1,4 +1,4 @@
-function calculate_ν!(ν,μ,neighbours,j,xi0,T)
+function calculate_ν!(ν,μ,neighbours,xi0,T)
     if xi0 == 0
         for τi = 0:T+1
             for ti = 0:T+1
@@ -67,4 +67,27 @@ function calculate_ν!(ν,μ,neighbours,j,xi0,T)
         return
     end
     ν ./= sum(ν);    
+end
+
+
+function update_μ!(μ,ν,Σ,l,sij,sji,T)
+    for tj = 0:T+1
+        for τj = 0:T+1
+            #First of all we set to 0 the function we want to update
+            #because later we want to sum over it
+            μ[l,tj,:,τj,:] .= 0
+            for ti = 0:T+1
+                #we pre calculate the value of the summed part
+                # so not to calculate it twice
+                Γ = Σ[ti,tj,clamp(τj+sji-1,0,T+1),2] - Σ[ti,tj,clamp(τj-sij,0,T+1),2]+ν[ti,tj,clamp(τj+sji,0,T+1),1]+
+                    Σ[ti,tj,T+1,0] - Σ[ti,tj,clamp(τj+sji,0,T+1),0]
+                for c = 0:1
+                    μ[l,tj,c,τj,0] += a[tj-ti-c] * Σ[ti,tj,clamp(τj-sij-1,0,T+1),2]
+                    μ[l,tj,c,τj,1] += a[tj-ti-c] * Σ[ti,tj,clamp(τj-sij,0,T+1),2]
+                    μ[l,tj,c,τj,2] += a[tj-ti-c] * Γ
+                end
+            end
+        end
+    end
+    μ[l,:,:,:,:] ./= sum(μ[l,:,:,:,:]);
 end
