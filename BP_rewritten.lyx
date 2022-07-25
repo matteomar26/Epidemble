@@ -1587,5 +1587,267 @@ RS Epidemble Population Dynamics
 
 \end_layout
 
+\begin_layout Section
+Marginals and observables
+\end_layout
+
+\begin_layout Standard
+Let us suppose that the equations converge.
+ Then, we have a population of 
+\begin_inset Formula $\mu$
+\end_inset
+
+ from which we want to recover the original marginals.
+ We are somehow fortunate because the function 
+\begin_inset Formula $\tilde{\nu}$
+\end_inset
+
+ that we calculate in the algorithm is actually almost everything we need
+ to obtain the marginals.
+ In fact, the original message 
+\begin_inset Formula $\nu$
+\end_inset
+
+ and the reparametrized message 
+\begin_inset Formula $\tilde{\nu}$
+\end_inset
+
+ are related by:
+\begin_inset Formula 
+\[
+\nu_{\psi_{i}\to j}(t_{i}^{(j)},t_{j}^{(i)},t_{i}^{*(j)},t_{j}^{*(i)})=\tilde{\nu}_{\psi_{i}\to j}(t_{i}^{(j)},t_{j}^{(i)},t_{i}^{*(j)},1+\text{sign}\left(t_{j}^{*(i)}-t_{i}^{*(j)}+s_{ji}^{*}\right))
+\]
+
+\end_inset
+
+Let us find then the marginal we want.
+ We start from:
+\begin_inset Formula 
+\begin{align*}
+p_{i}(t_{i},t_{j},t_{i}^{*},t_{j}^{*}) & \propto\nu_{\psi_{i}\to j}(t_{i},t_{j},t_{i}^{*},t_{j}^{*})\nu_{\psi_{j}\to i}(t_{j},t_{i},t_{j}^{*},t_{i}^{*})=\\
+ & =\tilde{\nu}_{\psi_{i}\to j}(t_{i},t_{j},t_{i}^{*},1+\text{sign}\left(t_{j}^{*}-t_{i}^{*}+s_{ji}^{*}\right))\tilde{\nu}_{\psi_{j}\to i}(t_{j},t_{i},t_{j}^{*},1+\text{sign}\left(t_{i}^{*}-t_{j}^{*}+s_{ij}^{*}\right))
+\end{align*}
+
+\end_inset
+
+We sum over 
+\begin_inset Formula $t_{j}^{*}$
+\end_inset
+
+:
+\begin_inset Formula 
+\begin{align*}
+p_{i}(t_{i},t_{j},\tau_{i}) & \propto\tilde{\nu}_{\psi_{i}\to j}(t_{i},t_{j},\tau_{i},0)\sum_{\tau_{j}=0}^{\tau_{i}-s_{ji}^{*}-1}\tilde{\nu}_{\psi_{j}\to i}(t_{j},t_{i},\tau_{j},2)+\\
+ & +\tilde{\nu}_{\psi_{i}\to j}(t_{i},t_{j},\tau_{i},1)\tilde{\nu}_{\psi_{j}\to i}(t_{j},t_{i},\tau_{i}-s_{ji}^{*},2)+\\
+ & +\tilde{\nu}_{\psi_{i}\to j}(t_{i},t_{j},\tau_{i},2)\sum_{\tau_{j}=\tau_{i}-s_{ji}^{*}+1}^{T+1}\tilde{\nu}_{\psi_{j}\to i}(t_{j},t_{i},\tau_{j},1+\text{sign}\left(\tau_{i}-\tau_{j}+s_{ij}^{*}\right))
+\end{align*}
+
+\end_inset
+
+This is a 
+\begin_inset Formula $T^{3}$
+\end_inset
+
+ vector so it is not bigger than other objects we have to calculate.
+ For 
+\begin_inset Formula $t_{i}$
+\end_inset
+
+ and 
+\begin_inset Formula $t_{j}$
+\end_inset
+
+ fixed, we can precalculate 
+\begin_inset Formula 
+\[
+\Sigma(t_{j},t_{i},k,\sigma):=\sum_{\tau_{j}=0}^{k}\tilde{\nu}_{\psi_{j}\to i}(t_{j},t_{i},\tau_{j},\sigma)
+\]
+
+\end_inset
+
+for 
+\begin_inset Formula $\sigma=0,1,2$
+\end_inset
+
+.
+ And finally we can express the marginal as:
+\begin_inset Formula 
+\begin{align*}
+p_{i}(t_{i},t_{j},\tau_{i}) & \propto\tilde{\nu}_{\psi_{i}\to j}(t_{i},t_{j},\tau_{i},0)\sum_{\tau_{j}=0}^{\tau_{i}-s_{ji}^{*}-1}\tilde{\nu}_{\psi_{j}\to i}(t_{j},t_{i},\tau_{j},2)+\\
+ & +\tilde{\nu}_{\psi_{i}\to j}(t_{i},t_{j},\tau_{i},1)\tilde{\nu}_{\psi_{j}\to i}(t_{j},t_{i},\tau_{i}-s_{ji}^{*},2)+\\
+ & +\tilde{\nu}_{\psi_{i}\to j}(t_{i},t_{j},\tau_{i},2)\sum_{\tau_{j}=\tau_{i}-s_{ji}^{*}+1}^{\tau_{i}+s_{ij}^{*}-1}\tilde{\nu}_{\psi_{j}\to i}(t_{j},t_{i},\tau_{j},2)\\
+ & +\tilde{\nu}_{\psi_{i}\to j}(t_{i},t_{j},\tau_{i},2)\tilde{\nu}_{\psi_{j}\to i}(t_{j},t_{i},\tau_{i}+s_{ij}^{*},1)\\
+ & +\tilde{\nu}_{\psi_{i}\to j}(t_{i},t_{j},\tau_{i},2)\sum_{\tau_{j}=\tau_{i}+s_{ij}^{*}+1}^{T+1}\tilde{\nu}_{\psi_{j}\to i}(t_{j},t_{i},\tau_{j},0)
+\end{align*}
+
+\end_inset
+
+Once the marginal 
+\begin_inset Formula $p(t_{i},t_{j},\tau_{i})$
+\end_inset
+
+ is obtained, we can easily trace over 
+\begin_inset Formula $t_{j}$
+\end_inset
+
+ in order to get 
+\begin_inset Formula $p_{i}(t_{i},\tau_{i})$
+\end_inset
+
+.
+ In the algorithmic language:
+\begin_inset Formula 
+\begin{align*}
+p_{i}(t_{i},t_{j},\tau_{i}) & \propto\nu_{1}(t_{i},t_{j},\tau_{i},0)\sum_{\tau_{j}=0}^{\tau_{i}-s_{ji}^{*}-1}\nu_{2}(t_{j},t_{i},\tau_{j},2)+\\
+ & +\nu_{1}(t_{i},t_{j},\tau_{i},1)\nu_{2}(t_{j},t_{i},\tau_{i}-s_{ji}^{*},2)+\\
+ & +\nu_{1}(t_{i},t_{j},\tau_{i},2)\sum_{\tau_{j}=\tau_{i}-s_{ji}^{*}+1}^{\tau_{i}+s_{ij}^{*}-1}\nu_{2}(t_{j},t_{i},\tau_{j},2)\\
+ & +\nu_{1}(t_{i},t_{j},\tau_{i},2)\nu_{2}(t_{j},t_{i},\tau_{i}+s_{ij}^{*},1)\\
+ & +\nu_{1}(t_{i},t_{j},\tau_{i},2)\sum_{\tau_{j}=\tau_{i}+s_{ij}^{*}+1}^{T+1}\nu_{2}(t_{j},t_{i},\tau_{j},0)
+\end{align*}
+
+\end_inset
+
+So:
+\begin_inset Formula 
+\begin{align*}
+p_{i}(t_{i},t_{j},\tau_{i}) & \propto\nu_{1}(t_{i},t_{j},\tau_{i},0)\Sigma(t_{j},t_{i},\tau_{i}-s_{ji}^{*}-1,2)+\\
+ & +\nu_{1}(t_{i},t_{j},\tau_{i},1)\nu_{2}(t_{j},t_{i},\tau_{i}-s_{ji}^{*},2)+\\
+ & +\nu_{1}(t_{i},t_{j},\tau_{i},2)\left(\Sigma(t_{j},t_{i},\tau_{i}+s_{ij}^{*}-1,2)-\Sigma(t_{j},t_{i},\tau_{i}-s_{ji}^{*},2)\right)\\
+ & +\nu_{1}(t_{i},t_{j},\tau_{i},2)\nu_{2}(t_{j},t_{i},\tau_{i}+s_{ij}^{*},1)\\
+ & +\nu_{1}(t_{i},t_{j},\tau_{i},2)\left(\Sigma(t_{j},t_{i},T+1,0)-\Sigma(t_{j},t_{i},\tau_{i}+s_{ij}^{*},0)\right)
+\end{align*}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float algorithm
+wide false
+sideways false
+status open
+
+\begin_layout Enumerate
+Extract 
+\begin_inset Formula $2d-2$
+\end_inset
+
+ 
+\begin_inset Formula $\mu$
+\end_inset
+
+'s from the population.
+\end_layout
+
+\begin_layout Enumerate
+Divide the 
+\begin_inset Formula $\mu$
+\end_inset
+
+'s into two groups of 
+\begin_inset Formula $d-1$
+\end_inset
+
+ functions and use each group to calculate a 
+\begin_inset Formula $\nu$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Enumerate
+We have 
+\begin_inset Formula $\nu_{1}$
+\end_inset
+
+ and 
+\begin_inset Formula $\nu_{2}$
+\end_inset
+
+.
+ 
+\end_layout
+
+\begin_layout Enumerate
+Cumulate one of the two 
+\begin_inset Formula $\nu$
+\end_inset
+
+'s, for example 
+\begin_inset Formula $\nu_{2}$
+\end_inset
+
+, into 
+\begin_inset Formula $\Sigma$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+loop 
+\series default
+over 
+\begin_inset Formula $t_{i},t_{j},\tau_{i}$
+\end_inset
+
+
+\end_layout
+
+\begin_deeper
+\begin_layout Enumerate
+Calculate 
+\begin_inset Formula $\Gamma(t_{i},t_{j},\tau_{i}):=\Sigma(t_{j},t_{i},\tau_{i}+s_{ij}^{*}-1,2)-\Sigma(t_{j},t_{i},\tau_{i}-s_{ji}^{*},2)+\nu_{2}(t_{j},t_{i},\tau_{i}+s_{ij}^{*},1)+\Sigma(t_{j},t_{i},T+1,0)-\Sigma(t_{j},t_{i},\tau_{i}+s_{ij}^{*},0)$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Enumerate
+Update 
+\begin_inset Formula $p_{i}(t_{i},t_{j},\tau_{i})=\nu_{1}(t_{i},t_{j},\tau_{i},0)\Sigma(t_{j},t_{i},\tau_{i}-s_{ji}^{*}-1,2)+\nu_{1}(t_{i},t_{j},\tau_{i},1)\nu_{2}(t_{j},t_{i},\tau_{i}-s_{ji}^{*},2)+\nu_{1}(t_{i},t_{j},\tau_{i},2)\Gamma$
+\end_inset
+
+
+\end_layout
+
+\end_deeper
+\begin_layout Enumerate
+Marginalize over 
+\begin_inset Formula $t_{j}$
+\end_inset
+
+ and normalize 
+\end_layout
+
+\begin_layout Enumerate
+Save 
+\begin_inset Formula $p_{i}$
+\end_inset
+
+ as an element of the population of marginals.
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+Calculation of the marginals
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
 \end_body
 \end_document
