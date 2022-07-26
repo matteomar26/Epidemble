@@ -1,3 +1,4 @@
+obs(ti, taui) = (ti == taui)
 function calculate_ν!(ν,μ,neighbours,xi0,T)
     if xi0 == 0
         for τi = 0:T+1
@@ -5,7 +6,9 @@ function calculate_ν!(ν,μ,neighbours,xi0,T)
                 #first we check consistency between
                 # the planted time τi and the inferred 
                 #time ti by checking the observation constraint            
-                if ((ti==T+1)&&(τi<=T)) || ((ti<=T)&&(τi==T+1))  #if the observation is NOT satisfied
+                #if ((ti==T+1)&&(τi<=T)) || ((ti<=T)&&(τi==T+1))  
+                #if (ti <= T) != (τi <= T) #if the observation is NOT satisfied
+                if !obs(ti,τi) #if the observation is NOT satisfied
                     continue  # ν = 0
                 end
                 #Since they both depend on ti only,
@@ -42,7 +45,7 @@ function calculate_ν!(ν,μ,neighbours,xi0,T)
 
         for τi = 0:T+1
             for ti = 0:T+1
-                if ((ti==T+1)&&(τi<=T)) || ((ti<=T)&&(τi==T+1))  #if the observation is NOT satisfied
+                if !obs(ti,τi)  #if the observation is NOT satisfied
                     continue
                 end
                 #we can calculate ν now because it is constant
@@ -79,11 +82,11 @@ function update_μ!(μ,ν,Σ,l,sij,sji,T)
             for ti = 0:T+1
                 #we pre calculate the value of the summed part
                 # so not to calculate it twice
-                Γ = Σ[ti,tj,clamp(τj+sji-1,0,T+1),2] - Σ[ti,tj,clamp(τj-sij,0,T+1),2]+ν[ti,tj,clamp(τj+sji,0,T+1),1]+
-                    Σ[ti,tj,T+1,0] - Σ[ti,tj,clamp(τj+sji,0,T+1),0]
+                Γ = Σ[ti,tj,min(τj+sji-1,T+1),2] - Int(τj-sij>=0)*Σ[ti,tj,max(τj-sij,0),2]+ν[ti,tj,min(τj+sji,T+1),1]+
+                    Σ[ti,tj,T+1,0] - Σ[ti,tj,min(τj+sji,T+1),0]
                 for c = 0:1
-                    μ[l,tj,c,τj,0] += a[tj-ti-c] * Σ[ti,tj,clamp(τj-sij-1,0,T+1),2]
-                    μ[l,tj,c,τj,1] += a[tj-ti-c] * Σ[ti,tj,clamp(τj-sij,0,T+1),2]
+                    μ[l,tj,c,τj,0] += a[tj-ti-c] * Int(τj-sij-1>=0) * Σ[ti,tj,max(τj-sij-1,0),2]
+                    μ[l,tj,c,τj,1] += a[tj-ti-c] * Int(τj-sij>=0) * Σ[ti,tj,max(τj-sij,0),2]
                     μ[l,tj,c,τj,2] += a[tj-ti-c] * Γ
                 end
             end
