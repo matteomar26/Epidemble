@@ -91,3 +91,10 @@ function update_μ!(μ,ν,Σ,l,sij,sji,T)
     end
     μ[l,:,:,:,:] ./= sum(μ[l,:,:,:,:]);
 end
+
+function rand_disorder(γ,λ)
+    sij = floor(Int,log(rand())/log(1-λ)) + 1
+    sji = floor(Int,log(rand())/log(1-λ)) + 1
+    xi0 = Int(rand() < γ);
+    return xi0,sij,sji
+end
