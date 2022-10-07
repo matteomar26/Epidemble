@@ -753,7 +753,7 @@ status open
 
 \begin_layout Plain Layout
 \begin_inset Graphics
-	filename ../BP_Ens_SI/graph.png
+	filename graph.png
 	width 90text%
 
 \end_inset
@@ -1067,21 +1067,25 @@ Bernoulli
 :
 \begin_inset Formula 
 \begin{align*}
-\text{} & \nu(t_{i},0,\tau_{i},\sigma)=\\
- & =\gamma(t_{i})\xi_{i}(t_{i},\tau_{i})\times\\
- & \times\Biggl(a(t_{i}-1)\prod_{k=1}^{d-1}\sum_{\sigma_{k}}\mu_{k}(t_{i},1,\tau_{i},\sigma_{k})+\\
- & -\phi(t_{i})a(t_{i})\prod_{k=1}^{d-1}\sum_{\sigma_{k}^{*}}\mu_{k}(t_{i},0,\tau_{i},\sigma_{k})\Biggl)
+\text{} & \nu(t_{i},t_{j},0,\sigma)=\\
+ & =\gamma(t_{i})\xi_{i}(t_{i},0)\times\\
+ & \times\Biggl(a(t_{i}-1)\prod_{k=1}^{d-1}\sum_{\sigma_{k}}\mu_{k}(t_{i},1,0,\sigma_{k})+\\
+ & -\phi(t_{i})a(t_{i})\prod_{k=1}^{d-1}\sum_{\sigma_{k}^{*}}\mu_{k}(t_{i},0,0,\sigma_{k})\Biggl)
 \end{align*}
 
 \end_inset
 
 So in the case in which it is a zero patient is very simple.
  The function is nonzero only for 
-\begin_inset Formula $t_{j}=0$
+\begin_inset Formula $\tau_{i}=0$
 \end_inset
 
  and it is constant in 
 \begin_inset Formula $\sigma$
+\end_inset
+
+ and 
+\begin_inset Formula $t_{j}$
 \end_inset
 
 .
@@ -1096,7 +1100,7 @@ So in the case in which it is a zero patient is very simple.
  & =\gamma(t_{i})\xi_{i}(t_{i},\tau_{i})\times\\
  & \times\Biggl(a(t_{i}-t_{j}-1)1\left(\sigma=1,2\right)\prod_{k=1}^{d-1}\sum_{\sigma_{k}=1}^{2}\mu_{k}(t_{i},1,\tau_{i},\sigma_{k})+\\
  & -a(t_{i}-t_{j}-1)1\left(\sigma=2\right)\prod_{k=1}^{d-1}\mu_{k}(t_{i},1,\tau_{i},2)+\\
- & -\phi(t_{i})a(t_{i}-t_{j})1\left(\sigma=1,2\right)\prod_{k=1}^{d-1}\sum_{\sigma_{k}=1}^{2}\mu_{k}(t_{i},1,\tau_{i},\sigma_{k})+\\
+ & -\phi(t_{i})a(t_{i}-t_{j})1\left(\sigma=1,2\right)\prod_{k=1}^{d-1}\sum_{\sigma_{k}=1}^{2}\mu_{k}(t_{i},0,\tau_{i},\sigma_{k})+\\
  & +\phi(t_{i})a(t_{i}-t_{j})1\left(\sigma=2\right)\prod_{k=1}^{d-1}\mu_{k}(t_{i},0,\tau_{i},2)\Biggr)
 \end{align*}
 
@@ -1169,11 +1173,7 @@ When the quantity
 
 \end_inset
 
-Keeping implicitly the variables 
-\begin_inset Formula $t_{i},t_{j}$
-\end_inset
-
-, we define :
+We define :
 \begin_inset Formula 
 \[
 \Sigma(t_{i},t_{j},k,\sigma):=\sum_{\tau_{i}=0}^{k}\nu(t_{i},t_{j},\tau_{i},\sigma)
@@ -1843,6 +1843,37 @@ Calculation of the marginals
 \begin_layout Plain Layout
 
 \end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+A limiting case
+\end_layout
+
+\begin_layout Standard
+Let us say that the observation constraint is: 
+\begin_inset Formula $\tau_{i}=t_{i}$
+\end_inset
+
+.
+ 
+\begin_inset Formula 
+\begin{align*}
+ & \mu(t_{j},c,\tau_{j},\sigma):=\\
+ & =\sum_{t_{i}}a(t_{j}-t_{i}-c)\begin{cases}
+\nu(t_{i},t_{j},t_{i},2)\mathbb{I}[t_{i}<\tau_{j}-s_{ij}^{*}] & \sigma=0\\
+\nu(t_{i},t_{j},t_{i},2)\mathbb{I}[t_{i}=\tau_{j}-s_{ij}^{*}] & \sigma=1\\
+\nu\left(t_{i},t_{j},t_{i},1+\text{sign}\left(\tau_{j}-t_{i}+s_{ji}^{*}\right)\right)\mathbb{I}[t_{i}>\tau_{j}-s_{ij}^{*}] & \sigma=2
+\end{cases}\\
+ & =\begin{cases}
+\sum_{t_{i}<\tau_{j}-s_{ij}^{*}}a(t_{j}-t_{i}-c)\nu(t_{i},t_{j},t_{i},2) & \sigma=0\\
+a(t_{j}-t_{i}-c)\nu(t_{i},t_{j},t_{i},2)\delta[t_{i},\tau_{j}-s_{ij}^{*}] & \sigma=1\\
+\sum_{t_{i}>\tau_{j}-s_{ij}^{*}}a(t_{j}-t_{i}-c)\nu\left(t_{i},t_{j},t_{i},1+\text{sign}\left(\tau_{j}-t_{i}+s_{ji}^{*}\right)\right) & \sigma=2
+\end{cases}
+\end{align*}
 
 \end_inset
 
