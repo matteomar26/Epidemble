@@ -1,4 +1,6 @@
 obs(ti, taui) = (ti == taui)
+#obs(ti, taui) = ((ti <= T+1) == (taui<=T))
+
 function calculate_ν!(ν,μ,neighbours,xi0,T)
     if xi0 == 0
         for τi = 0:T+1
@@ -43,13 +45,13 @@ function calculate_ν!(ν,μ,neighbours,xi0,T)
         # the ν function is a little bit different than before
         # so we separated the cases
 
-        for τi = 0:T+1
+        for tj = 0:T+1
             for ti = 0:T+1
-                if !obs(ti,τi)  #if the observation is NOT satisfied
+                if !obs(ti,0)  #if the observation is NOT satisfied
                     continue
                 end
                 #we can calculate ν now because it is constant
-                # in σ and is nonzero only if tj=0
+                # in σ and is nonzero only if τi=0
 
                 #As before we pre-calculate ti-dependent quantities 
                 seed = (ti==0 ? γ : (1-γ) )
@@ -57,18 +59,22 @@ function calculate_ν!(ν,μ,neighbours,xi0,T)
                 # We perform the product over neighbours
                 m1, m2 = ones(2)
                 for k in neighbours                
-                    m1 *= sum(μ[k,ti,1,τi,:])
-                    m2 *= sum(μ[k,ti,0,τi,:])
+                    m1 *= sum(μ[k,ti,1,0,:])
+                    m2 *= sum(μ[k,ti,0,0,:])
                 end
                 #We calculate ν in the zero patient case
-                ν[ti,0,τi,:] .= seed * (a[ti-1] * m1 - phi * a[ti] * m2)
+                ν[ti,tj,0,:] .= seed * (a[ti-1] * m1 - phi * a[ti] * m2)
             end
         end
+    end
+    if any(isnan.(ν))
+        println("NaN in ν")
+        return
     end
     if sum(ν) == 0
         println("sum-zero ν")
         return
-    end
+    end    
     ν ./= sum(ν);    
 end
 
@@ -82,7 +88,7 @@ function update_μ!(μ,ν,Σ,l,sij,sji,T)
             for ti = 0:T+1
                 #we pre calculate the value of the summed part
                 # so not to calculate it twice
-                Γ = Σ[ti,tj,min(τj+sji-1,T+1),2] - Int(τj-sij>=0)*Σ[ti,tj,max(τj-sij,0),2]+ν[ti,tj,min(τj+sji,T+1),1]+
+                Γ = Σ[ti,tj,min(τj+sji-1,T+1),2] - Int(τj-sij>=0)*Σ[ti,tj,max(τj-sij,0),2]+Int(τj+sji<=T+1)*ν[ti,tj,min(τj+sji,T+1),1]+
                     Σ[ti,tj,T+1,0] - Σ[ti,tj,min(τj+sji,T+1),0]
                 for c = 0:1
                     μ[l,tj,c,τj,0] += a[tj-ti-c] * Int(τj-sij-1>=0) * Σ[ti,tj,max(τj-sij-1,0),2]
@@ -92,6 +98,14 @@ function update_μ!(μ,ν,Σ,l,sij,sji,T)
             end
         end
     end
+    if any(isnan.(μ))
+        println("NaN in μ")
+        return
+    end
+    if sum(μ[l,:,:,:,:]) == 0
+        println("sum-zero μ")
+        return
+    end    
     μ[l,:,:,:,:] ./= sum(μ[l,:,:,:,:]);
 end
 
