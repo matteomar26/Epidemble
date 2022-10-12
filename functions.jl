@@ -63,7 +63,7 @@ function calculate_ν!(ν,μ,neighbours,xi0,T)
                     m2 *= sum(μ[k,ti,0,0,:])
                 end
                 #We calculate ν in the zero patient case
-                ν[ti,tj,0,:] .= seed * (a[ti-1] * m1 - phi * a[ti] * m2)
+                ν[ti,tj,0,:] .= seed * (a[ti-1-tj] * m1 - phi * a[ti-tj] * m2)
             end
         end
     end
