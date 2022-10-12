@@ -1387,7 +1387,7 @@ else if
 Loop
 \series default
  over 
-\begin_inset Formula $\tau_{i}$
+\begin_inset Formula $t_{j}$
 \end_inset
 
  and 
@@ -1432,11 +1432,7 @@ Calculate the
 \begin_inset Formula $\sigma$
 \end_inset
 
- and for 
-\begin_inset Formula $t_{j}=0$
-\end_inset
-
- 
+  
 \end_layout
 
 \end_deeper
