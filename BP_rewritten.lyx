@@ -1069,8 +1069,8 @@ Bernoulli
 \begin{align*}
 \text{} & \nu(t_{i},t_{j},0,\sigma)=\\
  & =\gamma(t_{i})\xi_{i}(t_{i},0)\times\\
- & \times\Biggl(a(t_{i}-1)\prod_{k=1}^{d-1}\sum_{\sigma_{k}}\mu_{k}(t_{i},1,0,\sigma_{k})+\\
- & -\phi(t_{i})a(t_{i})\prod_{k=1}^{d-1}\sum_{\sigma_{k}^{*}}\mu_{k}(t_{i},0,0,\sigma_{k})\Biggl)
+ & \times\Biggl(a(t_{i}-t_{j}-1)\prod_{k=1}^{d-1}\sum_{\sigma_{k}}\mu_{k}(t_{i},1,0,\sigma_{k})+\\
+ & -\phi(t_{i})a(t_{i}-t_{j})\prod_{k=1}^{d-1}\sum_{\sigma_{k}^{*}}\mu_{k}(t_{i},0,0,\sigma_{k})\Biggl)
 \end{align*}
 
 \end_inset
