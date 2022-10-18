@@ -92,7 +92,7 @@ function update_μ!(μ,ν,Σ,l,sij,sji,T)
                     Σ[ti,tj,T+1,0] - Σ[ti,tj,min(τj+sji,T+1),0]
                 for c = 0:1
                     μ[l,tj,c,τj,0] += a[tj-ti-c] * Int(τj-sij-1>=0) * Σ[ti,tj,max(τj-sij-1,0),2]
-                    μ[l,tj,c,τj,1] += a[tj-ti-c] * Int(τj-sij>=0) * Σ[ti,tj,max(τj-sij,0),2]
+                    μ[l,tj,c,τj,1] += a[tj-ti-c] * Int(τj-sij>=0) * ν[ti,tj,max(τj-sij,0),2]
                     μ[l,tj,c,τj,2] += a[tj-ti-c] * Γ
                 end
             end
