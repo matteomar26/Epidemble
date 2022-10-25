@@ -35,7 +35,7 @@ function calculate_ν!(ν,μ,neighbours,xi0,T)
                 for tj=0:T+1                
                     ν[ti,tj,τi,1] = seed * (a[ti-tj-1] * m1 - phi * a[ti-tj] * m2)
                     # We use the fact that ν for σ=2 is just ν at σ=1 plus a term
-                    ν[ti,tj,τi,2] = ν[ti,tj,τi,1] + seed * (phi * a[ti-tj] * m4 - a[ti-tj-1] * m3)
+                    ν[ti,tj,τi,2] = ν[ti,tj,τi,1] + Int(τi<T+1) * seed * (phi * a[ti-tj] * m4 - a[ti-tj-1] * m3)
                 end
             end
         end
