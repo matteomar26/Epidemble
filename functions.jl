@@ -109,6 +109,22 @@ function update_μ!(μ,ν,Σ,l,sij,sji,T)
     μ[l,:,:,:,:] ./= sum(μ[l,:,:,:,:]);
 end
 
+function update_marginal!(marg,l,ν1,ν2,sij,sji,T)
+    p = OffsetArrays.OffsetArray(zeros(T+2,T+2,T+2),-1,-1,-1);
+    for ti = 0:T+1
+        for τi = 0:T+1
+            for tj = 0:T+1
+                Γ = Σ[tj,ti,min(τi+sij-1,T+1),2]-Int(τi-sji>=0)*Σ[tj,ti,max(τi-sji,0),2]+Int(τi+sij<=T+1)*ν2[tj,ti,min(τi+sij,T+1),1]
+                   +Σ[tj,ti,T+1,0]-Σ[tj,ti,min(τi+sij,T+1),0]
+                p[ti,tj,τi] = ν1[ti,tj,τi,0]*Int(τi-sji-1>=0)*Σ[tj,ti,max(τi-sji-1,0),2] +
+                              ν1[ti,tj,τi,1]*Int(τi-sji>=0)*ν2[tj,ti,max(τi-sji,0),2] + ν1[ti,tj,τi,2]*Γ 
+            end
+        end
+    end
+    marg[l,:,:] = sum(p,dims=2)
+    marg[l,:,:] ./= sum(marg[l,:,:])
+end
+
 function rand_disorder(γ,λ)
     sij = floor(Int,log(rand())/log(1-λ)) + 1
     sji = floor(Int,log(rand())/log(1-λ)) + 1
