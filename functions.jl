@@ -1,5 +1,5 @@
-obs(ti, taui) = (ti == taui)
-#obs(ti, taui) = ((ti <= T+1) == (taui<=T))
+#obs(ti, taui) = (ti == taui)
+obs(ti, taui) = ((ti <= T) == (taui<=T))
 
 function calculate_ν!(ν,μ,neighbours,xi0,T)
     if xi0 == 0
