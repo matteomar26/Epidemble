@@ -1,6 +1,7 @@
 using PyCall
+
 @pyimport sib
-function sibyl(N, T_cont, Λ, O, γ, λ ; dt=1/5, maxit = 400, tol = 1e-14)
+function sibyl(N, T_cont, Λ, O, γ, λ ; dt=1, maxit = 400, tol = 1e-14)
     
     T = Int(round(T_cont / dt))
     contacts = [(i-1,j-1,t, λ * dt) for t in 1:T for (i,j,v) in zip(findnz(Λ.A)...)];
