@@ -1,7 +1,7 @@
 #obs(ti, taui) = (ti == taui)
 obs(ti, taui) = ((ti <= T) == (taui<=T))
 
-function calculate_ν!(ν,μ,neighbours,xi0,T,γp,a)
+function calculate_ν!(ν,μ,neighbours,xi0,T,γi,a)
     if xi0 == 0
         for τi = 0:T+1
             for ti = 0:T+1
