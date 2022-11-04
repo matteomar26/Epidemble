@@ -109,7 +109,7 @@ function update_μ!(μ,ν,Σ,l,sij,sji,T)
     μ[l,:,:,:,:] ./= sum(μ[l,:,:,:,:]);
 end
 
-function update_marginal!(marg,l,ν1,ν2,sij,sji,T)
+function update_marginal!(marg,l,ν1,ν2,Σ,sij,sji,T)
     p = OffsetArrays.OffsetArray(zeros(T+2,T+2,T+2),-1,-1,-1);
     for ti = 0:T+1
         for τi = 0:T+1
