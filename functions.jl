@@ -17,7 +17,7 @@ function calculate_ν!(ν,μ,neighbours,xi0,T,γi,a)
                 # we precaclulate the prior seed probability
                 # of the individual and the value of phi function 
                 # which is 1 if 0<ti<T+1 and 0 if ti=0,T+1
-                seed = (ti==0 ? γ : (1-γ) )
+                seed = (ti==0 ? γi : (1-γi) )
                 phi = (ti==0 || ti==T+1) ? 0 : 1
                 #now we calculate the four products over
                 # μ functions that we need to put in the
@@ -125,9 +125,9 @@ function update_marginal!(marg,l,ν1,ν2,sij,sji,T)
     marg[l,:,:] ./= sum(marg[l,:,:])
 end
 
-function rand_disorder(γ,λ)
-    sij = floor(Int,log(rand())/log(1-λ)) + 1
-    sji = floor(Int,log(rand())/log(1-λ)) + 1
-    xi0 = Int(rand() < γ);
+function rand_disorder(γp,λp)
+    sij = floor(Int,log(rand())/log(1-λp)) + 1
+    sji = floor(Int,log(rand())/log(1-λp)) + 1
+    xi0 = Int(rand() < γp);
     return xi0,sij,sji
 end
