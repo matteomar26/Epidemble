@@ -54,7 +54,7 @@ function calculate_ν!(ν,μ,neighbours,xi0,T,γi,a)
                 # in σ and is nonzero only if τi=0
 
                 #As before we pre-calculate ti-dependent quantities 
-                seed = (ti==0 ? γ : (1-γ) )
+                seed = (ti==0 ? γi : (1-γi) )
                 phi = (ti==0 || ti==T+1) ? 0 : 1
                 # We perform the product over neighbours
                 m1, m2 = ones(2)
