@@ -3,7 +3,7 @@ using PyCall
 @pyimport sib
 function sibyl(N, T, Λ, O, γ, λ ; maxit = 400, tol = 1e-14)
     
-    contacts = [(i-1,j-1,t, λ * dt) for t in 1:T for (i,j,v) in zip(findnz(Λ.A)...)];
+    contacts = [(i-1,j-1,t, λ) for t in 1:T for (i,j,v) in zip(findnz(Λ.A)...)];
     obs = [[(i,-1,t) for t=1:T for i=0:N-1];
            [(i-1,s,t) for (i,s,t,p) in O]]
     sort!(obs, lt=((i1,s1,t1),(i2,s2,t2))->(t1<t2))
