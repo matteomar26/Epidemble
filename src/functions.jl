@@ -145,7 +145,7 @@ function pop_dynamics(N, T, λp, λi, γp, γi, d; tot_iterations = 5000)
     a = Dict(zip(-T-2:T+1,[ t<=0 ? 1 : (1-λi)^t for t = -T-2:T+1]));
 
     ν = OffsetArrays.OffsetArray(zeros(T+2,T+2,T+2,3),-1,-1,-1,-1);
-    @showprogress for iterations = 1:tot_iterations
+    for iterations = 1:tot_iterations
         # Extraction of disorder: state of individual i: xi0, delays: sij and sji
 
         xi0,sij,sji = rand_disorder(γp,λp)
@@ -179,7 +179,7 @@ function pop_dynamics(N, T, λp, λi, γp, γi, d; tot_iterations = 5000)
     # First we extract two ν's and then we combine it in order to obtain a marginal.
     # In order to extract a ν we have to extract d-1 μ's. Therefore we extract two groups of 
     # d-1 μ's and from them we calculate the two ν's. We also have to extract disorder.
-    @showprogress for l = 1:N
+    for l = 1:N
         group1 = rand(1:N,d-1) #groups of neighbours 
         group2 = rand(1:N,d-1)
 
@@ -198,4 +198,19 @@ function pop_dynamics(N, T, λp, λi, γp, γi, d; tot_iterations = 5000)
     end
     marg2D = reshape((sum(marg,dims=1)./ N),T+2,T+2);
     return marg2D
+end
+
+
+function PhaseDiagram(γvalues, λvalues, N, T, d; tot_iterations=10000)
+    p_infer = zeros(length(γvalues),length(λvalues))
+    pr = Progress(length(γvalues) * length(λvalues))
+    Threads.@threads for (γcount,λcount) in collect(product(1:length(γvalues),1:length(λvalues)))
+        λi = λp = λvalues[λcount]
+        γi = γp = γvalues[γcount]
+        marg2D = pop_dynamics(N, T, λp, λi, γp, γi, d, tot_iterations = tot_iterations)
+        # we sum over the trace of the 2D marginal to find the probability to infere correctly
+        p_infer[γcount,λcount] = sum([marg2D[t,t] for t=1:T+2])
+        ProgressMeter.next!(pr)#, showvalues=[(:F,sum(avF))])
+    end
+    return p_infer
 end
