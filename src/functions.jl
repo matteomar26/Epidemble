@@ -79,7 +79,7 @@ function calculate_ν!(ν,μ,neighbours,xi0,T,γi,a)
 end
 
 
-function update_μ!(μ,ν,Σ,l,sij,sji,T)
+function update_μ!(μ,ν,Σ,l,sij,sji,T,a)
     for tj = 0:T+1
         for τj = 0:T+1
             #First of all we set to 0 the function we want to update
@@ -130,4 +130,72 @@ function rand_disorder(γp,λp)
     sji = floor(Int,log(rand())/log(1-λp)) + 1
     xi0 = Int(rand() < γp);
     return xi0,sij,sji
+end
+
+
+function pop_dynamics(N, T, λp, λi, γp, γi, d; tot_iterations = 5000)
+    inizialization = ones(N,T+2,2,T+2,3) / (6*(T+2)^2)
+    μ = OffsetArrays.OffsetArray(inizialization,0,-1,-1,-1,-1);
+
+
+    #Precalculation of the function a := (1-λ)^{tθ(t)}, 
+    #useful for later (the function a appears
+    #  in the inferred time factor node)
+
+    a = Dict(zip(-T-2:T+1,[ t<=0 ? 1 : (1-λi)^t for t = -T-2:T+1]));
+
+    ν = OffsetArrays.OffsetArray(zeros(T+2,T+2,T+2,3),-1,-1,-1,-1);
+    @showprogress for iterations = 1:tot_iterations
+        # Extraction of disorder: state of individual i: xi0, delays: sij and sji
+
+        xi0,sij,sji = rand_disorder(γp,λp)
+
+        # Initialization of ν=0
+        ν = OffsetArrays.OffsetArray(zeros(T+2,T+2,T+2,3),-1,-1,-1,-1)
+
+        #Extraction of d-1 μ's from population
+        neighbours = rand(1:N,d-1)
+
+        #Beginning of calculations: we start by calculating the ν: 
+        calculate_ν!(ν,μ,neighbours,xi0,T,γi,a)
+
+        # Now we use the ν vector just calculated to extract the new μ.
+        # We extract a population index that we call "l".
+        # We overwrite the μ in postition μ[l,:,:,:,:]
+        l = rand(1:N);
+
+        # First we calculate and store the cumulated of ν with respect to 
+        # planted time, i.e. the third argument. We call Σ this cumulated 
+        Σ = cumsum(ν,dims=3)
+        update_μ!(μ,ν,Σ,l,sij,sji,T,a)     
+    end
+
+
+    p = OffsetArrays.OffsetArray(zeros(T+2,T+2,T+2),-1,-1,-1);
+    marg = OffsetArrays.OffsetArray(zeros(N,T+2,T+2),0,-1,-1);
+
+
+    # Now we take out converged population of μ and use it to extract marginals.
+    # First we extract two ν's and then we combine it in order to obtain a marginal.
+    # In order to extract a ν we have to extract d-1 μ's. Therefore we extract two groups of 
+    # d-1 μ's and from them we calculate the two ν's. We also have to extract disorder.
+    @showprogress for l = 1:N
+        group1 = rand(1:N,d-1) #groups of neighbours 
+        group2 = rand(1:N,d-1)
+
+        xi0,sij,sji = rand_disorder(γp,λp) #planted disorder
+        xj0 = Int(rand() < γp);
+
+        ν1 = OffsetArrays.OffsetArray(zeros(T+2,T+2,T+2,3),-1,-1,-1,-1)
+        ν2 = OffsetArrays.OffsetArray(zeros(T+2,T+2,T+2,3),-1,-1,-1,-1)
+
+        calculate_ν!(ν1,μ,group1,xi0,T,γi,a)
+        calculate_ν!(ν2,μ,group2,xj0,T,γi,a)
+
+        #Once the ν are calculated we have to cumulate with respect the third argument
+        Σ = cumsum(ν2,dims=3)
+        update_marginal!(marg,l,ν1,ν2,Σ,sij,sji,T)
+    end
+    marg2D = reshape((sum(marg,dims=1)./ N),T+2,T+2);
+    return marg2D
 end
