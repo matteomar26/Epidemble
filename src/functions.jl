@@ -214,3 +214,33 @@ function PhaseDiagram(γvalues, λvalues, N, T, d; tot_iterations=10000)
     end
     return p_infer
 end
+
+
+function avgAUC(t, marg)
+    N = size(marg,1)
+    T = size(marg,2) - 2
+    AUC = 0
+    popcount = 0
+    for l = 1:2:N
+        result = 0
+        count = 0
+        for τi = 0:t
+            for τj = t+1:T+1
+                if (sum(marg[l, :, τi]) == 0 || sum(marg[l, :, τj]) == 0)
+                    continue
+                end
+                count += 1
+                pi = sum(marg[l, 0:t, τi])
+                pj = sum(marg[l+1, 0:t, τj])
+                result += (pi > pj) 
+            end
+        end
+        if count == 0
+            @assert result == 0
+        else
+            popcount += 1
+            AUC += (result/count)
+        end
+    end
+    AUC/popcount
+end
