@@ -169,8 +169,7 @@ function pop_dynamics(N, T, λp, λi, γp, γi, d; tot_iterations = 5000)
         Σ = cumsum(ν,dims=3)
         update_μ!(μ,ν,Σ,l,sij,sji,T,a)     
     end
-
-
+    
     p = OffsetArrays.OffsetArray(zeros(T+2,T+2,T+2),-1,-1,-1);
     marg = OffsetArrays.OffsetArray(zeros(N,T+2,T+2),0,-1,-1);
 
@@ -196,18 +195,18 @@ function pop_dynamics(N, T, λp, λi, γp, γi, d; tot_iterations = 5000)
         Σ = cumsum(ν2,dims=3)
         update_marginal!(marg,l,ν1,ν2,Σ,sij,sji,T)
     end
-    marg2D = reshape((sum(marg,dims=1)./ N),T+2,T+2);
-    return marg2D
+    return marg
 end
 
 
-function PhaseDiagram(γvalues, λvalues, N, T, d; tot_iterations=10000)
+function TracePhaseDiagram(γvalues, λvalues, N, T, d; tot_iterations=10000)
     p_infer = zeros(length(γvalues),length(λvalues))
-    pr = Progress(length(γvalues) * length(λvalues))
+    #pr = Progress(length(γvalues) * length(λvalues))
     for (γcount,λcount) in collect(product(1:length(γvalues),1:length(λvalues)))
         λi = λp = λvalues[λcount]
         γi = γp = γvalues[γcount]
-        marg2D = pop_dynamics(N, T, λp, λi, γp, γi, d, tot_iterations = tot_iterations)
+        marg = pop_dynamics(N, T, λp, λi, γp, γi, d, tot_iterations = tot_iterations)
+        marg2D = reshape((sum(marg,dims=1)./ N),T+2,T+2);
         # we sum over the trace of the 2D marginal to find the probability to infere correctly
         p_infer[γcount,λcount] = sum([marg2D[t,t] for t=1:T+2])
         #ProgressMeter.next!(pr)#, showvalues=[(:F,sum(avF))])
@@ -221,9 +220,9 @@ function AUCPhaseDiagram(γvalues, λvalues, N, T, d; tot_iterations=10000)
     for (γcount,λcount) in collect(product(1:length(γvalues),1:length(λvalues)))
         λi = λp = λvalues[λcount]
         γi = γp = γvalues[γcount]
-        marg2D = pop_dynamics(N, T, λp, λi, γp, γi, d, tot_iterations = tot_iterations)
+        marg = pop_dynamics(N, T, λp, λi, γp, γi, d, tot_iterations = tot_iterations)
         # we sum over the trace of the 2D marginal to find the probability to infere correctly
-        p_infer[γcount,λcount] = avgAUC(0,marg2D)
+        p_infer[γcount,λcount] = avgAUC(0,marg)
         #ProgressMeter.next!(pr)#, showvalues=[(:F,sum(avF))])
     end
     return p_infer
