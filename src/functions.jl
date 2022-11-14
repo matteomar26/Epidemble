@@ -204,12 +204,26 @@ end
 function PhaseDiagram(γvalues, λvalues, N, T, d; tot_iterations=10000)
     p_infer = zeros(length(γvalues),length(λvalues))
     pr = Progress(length(γvalues) * length(λvalues))
-    Threads.@threads for (γcount,λcount) in collect(product(1:length(γvalues),1:length(λvalues)))
+    for (γcount,λcount) in collect(product(1:length(γvalues),1:length(λvalues)))
         λi = λp = λvalues[λcount]
         γi = γp = γvalues[γcount]
         marg2D = pop_dynamics(N, T, λp, λi, γp, γi, d, tot_iterations = tot_iterations)
         # we sum over the trace of the 2D marginal to find the probability to infere correctly
         p_infer[γcount,λcount] = sum([marg2D[t,t] for t=1:T+2])
+        #ProgressMeter.next!(pr)#, showvalues=[(:F,sum(avF))])
+    end
+    return p_infer
+end
+
+function AUCPhaseDiagram(γvalues, λvalues, N, T, d; tot_iterations=10000)
+    p_infer = zeros(length(γvalues),length(λvalues))
+    pr = Progress(length(γvalues) * length(λvalues))
+    for (γcount,λcount) in collect(product(1:length(γvalues),1:length(λvalues)))
+        λi = λp = λvalues[λcount]
+        γi = γp = γvalues[γcount]
+        marg2D = pop_dynamics(N, T, λp, λi, γp, γi, d, tot_iterations = tot_iterations)
+        # we sum over the trace of the 2D marginal to find the probability to infere correctly
+        p_infer[γcount,λcount] = avgAUC(0,marg2D)
         #ProgressMeter.next!(pr)#, showvalues=[(:F,sum(avF))])
     end
     return p_infer
