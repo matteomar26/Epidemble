@@ -134,7 +134,7 @@ end
 
 
 
-function pop_dynamics(N, T, λp, λi, γp, γi, d; tot_iterations = 5000)
+function pop_dynamics(N, T, λp, λi, γp, γi, d; tot_iterations = 5)
     μ = fill(1.0 / (6*(T+2)^2), 1:N, 0:T+1, 0:1, 0:T+1, 0:2)
 
     #Precalculation of the function a := (1-λ)^{tθ(t)}, 
@@ -147,28 +147,30 @@ function pop_dynamics(N, T, λp, λi, γp, γi, d; tot_iterations = 5000)
     
     ν = fill(0.0, 0:T+1, 0:T+1, 0:T+1, 0:2)
     for iterations = 1:tot_iterations
-        # Extraction of disorder: state of individual i: xi0, delays: sij and sji
+        for l = 1:N
+            # Extraction of disorder: state of individual i: xi0, delays: sij and sji
 
-        xi0,sij,sji = rand_disorder(γp,λp)
+            xi0,sij,sji = rand_disorder(γp,λp)
 
-        # Initialization of ν=0
-        ν .= 0.0
+            # Initialization of ν=0
+            ν .= 0.0
 
-        #Extraction of d-1 μ's from population
-        neighbours = rand(1:N,d-1)
+            #Extraction of d-1 μ's from population
+            neighbours = rand(1:N,d-1)
 
-        #Beginning of calculations: we start by calculating the ν: 
-        calculate_ν!(ν,μ,neighbours,xi0,T,γi,a)
+            #Beginning of calculations: we start by calculating the ν: 
+            calculate_ν!(ν,μ,neighbours,xi0,T,γi,a)
 
-        # Now we use the ν vector just calculated to extract the new μ.
-        # We extract a population index that we call "l".
-        # We overwrite the μ in postition μ[l,:,:,:,:]
-        l = rand(1:N);
+            # Now we use the ν vector just calculated to extract the new μ.
+            # We overwrite the μ in postition μ[l,:,:,:,:]
 
-        # First we calculate and store the cumulated of ν with respect to 
-        # planted time, i.e. the third argument. We call Σ this cumulated 
-        Σ = cumsum(ν,dims=3)
-        update_μ!(μ,ν,Σ,l,sij,sji,T,a)     
+            # First we calculate and store the cumulated of ν with respect to 
+            # planted time, i.e. the third argument. We call Σ this cumulated 
+            Σ = cumsum(ν,dims=3)
+            
+            #then we call the update μ function
+            update_μ!(μ,ν,Σ,l,sij,sji,T,a)     
+        end
     end
     
     p = fill(0.0, 0:T+1, 0:T+1, 0:T+1)
