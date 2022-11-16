@@ -201,7 +201,7 @@ end
 
 
 function TracePhaseDiagram(γvalues, λvalues, N, T, d; tot_iterations=10000)
-    p_infer = zeros(length(γvalues),length(λvalues))
+    inf_out = zeros(length(γvalues),length(λvalues), T + 2) # 1 value for pdiag and T+1 values for the AUC
     pr = Progress(length(γvalues) * length(λvalues))
     Threads.@threads for (γcount,λcount) in collect(product(1:length(γvalues),1:length(λvalues)))
         λi = λp = λvalues[λcount]
@@ -209,53 +209,36 @@ function TracePhaseDiagram(γvalues, λvalues, N, T, d; tot_iterations=10000)
         marg = pop_dynamics(N, T, λp, λi, γp, γi, d, tot_iterations = tot_iterations)
         marg2D = reshape((sum(marg,dims=1)./ N),T+2,T+2);
         # we sum over the trace of the 2D marginal to find the probability to infere correctly
-        p_infer[γcount,λcount] = sum([marg2D[t,t] for t=1:T+2])
+        inf_out[γcount,λcount,1] = sum([marg2D[t,t] for t=1:T+2])
+        inf_out[γcount,λcount,2:end] .= avgAUC(marg)
         ProgressMeter.next!(pr)
     end
-    return p_infer
-end
-
-function AUCPhaseDiagram(γvalues, λvalues, N, T, d; tot_iterations=10000)
-    p_infer = zeros(length(γvalues),length(λvalues))
-    pr = Progress(length(γvalues) * length(λvalues))
-    for (γcount,λcount) in collect(product(1:length(γvalues),1:length(λvalues)))
-        λi = λp = λvalues[λcount]
-        γi = γp = γvalues[γcount]
-        marg = pop_dynamics(N, T, λp, λi, γp, γi, d, tot_iterations = tot_iterations)
-        # we sum over the trace of the 2D marginal to find the probability to infere correctly
-        p_infer[γcount,λcount] = avgAUC(0,marg)
-        #ProgressMeter.next!(pr)#, showvalues=[(:F,sum(avF))])
-    end
-    return p_infer
+    return inf_out
 end
 
 
-function avgAUC(t, marg)
+function avgAUC(marg)
     N = size(marg,1)
     T = size(marg,2) - 2
-    AUC = 0
-    popcount = 0
-    for l = 1:N-1
+    AUC = OffsetArrays.OffsetArray(zeros(T+1),-1)
+    count = OffsetArrays.OffsetArray(zeros(T+1),-1)
+    for l = 1 : N - 1
         result = 0
-        count = 0
-        for τi = 0:t
-            for τj = t+1:T+1
-                if (sum(marg[l, τi, :]) == 0 || sum(marg[l+1, τj, :]) == 0)
-                    continue
+        for τi = 0 : T
+            (sum(marg[l, :, τi]) == 0 ) && continue
+            for τj = τi + 1 : T + 1
+                (sum(marg[l + 1, :, τj]) == 0) && continue
+                #@show l,τi,τj
+                #if you think at the perfect inference you understand that for t=τj you would sum the diagonal
+                for t = τi : τj - 1
+                    count[t] += 1
+                    pi = sum(marg[l, 0:t, τi])
+                    pj = sum(marg[l+1, 0:t, τj])
+                    AUC[t] += (pi > pj)
+                    #@show t,pi,pj
                 end
-                count += 1
-                pi = sum(marg[l, τi, 0:t])
-                pj = sum(marg[l+1, τj, 0:t])
-                result += (pi == pj) 
             end
         end
-        if count == 0
-            @assert result == 0
-        else
-            popcount += 1
-            AUC += (result/count)
-        end
     end
-    @show AUC
-    AUC/popcount
+    return AUC ./ count
 end
