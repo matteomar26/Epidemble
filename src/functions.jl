@@ -33,9 +33,9 @@ function calculate_ν!(ν,μ,neighbours,xi0,T,γi,a)
                 end
                 #Now we have everything to calculate ν
                 for tj=0:T+1                
-                    ν[ti,tj,τi,1] = seed * (a(ti-tj-1) * m1 - phi * a(ti-tj) * m2)
+                    ν[ti,tj,τi,1] = seed * (a[ti-tj-1] * m1 - phi * a[ti-tj] * m2)
                     # We use the fact that ν for σ=2 is just ν at σ=1 plus a term
-                    ν[ti,tj,τi,2] = ν[ti,tj,τi,1] + (τi<T+1) * seed * (phi * a(ti-tj) * m4 - a(ti-tj-1) * m3)
+                    ν[ti,tj,τi,2] = ν[ti,tj,τi,1] + (τi<T+1) * seed * (phi * a[ti-tj] * m4 - a[ti-tj-1] * m3)
                 end
             end
         end
@@ -63,7 +63,7 @@ function calculate_ν!(ν,μ,neighbours,xi0,T,γi,a)
                     m2 *= μ[k,ti,0,0,0] + μ[k,ti,0,0,1] + μ[k,ti,0,0,2]
                 end
                 #We calculate ν in the zero patient case
-                ν[ti,tj,0,:] .= seed * (a(ti-1-tj) * m1 - phi * a(ti-tj) * m2)
+                ν[ti,tj,0,:] .= seed * (a[ti-1-tj] * m1 - phi * a[ti-tj] * m2)
             end
         end
     end
@@ -91,9 +91,9 @@ function update_μ!(μ,ν,Σ,l,sij,sji,T,a)
                 Γ = Σ[ti,tj,min(τj+sji-1,T+1),2] - (τj-sij>=0)*Σ[ti,tj,max(τj-sij,0),2]+(τj+sji<=T+1)*ν[ti,tj,min(τj+sji,T+1),1]+
                     Σ[ti,tj,T+1,0] - Σ[ti,tj,min(τj+sji,T+1),0]
                 for c = 0:1
-                    μ[l,tj,c,τj,0] += a(tj-ti-c) * (τj-sij-1>=0) * Σ[ti,tj,max(τj-sij-1,0),2]
-                    μ[l,tj,c,τj,1] += a(tj-ti-c) * (τj-sij>=0) * ν[ti,tj,max(τj-sij,0),2]
-                    μ[l,tj,c,τj,2] += a(tj-ti-c) * Γ
+                    μ[l,tj,c,τj,0] += a[tj-ti-c] * (τj-sij-1>=0) * Σ[ti,tj,max(τj-sij-1,0),2]
+                    μ[l,tj,c,τj,1] += a[tj-ti-c] * (τj-sij>=0) * ν[ti,tj,max(τj-sij,0),2]
+                    μ[l,tj,c,τj,2] += a[tj-ti-c] * Γ
                 end
             end
         end
@@ -141,9 +141,9 @@ function pop_dynamics(N, T, λp, λi, γp, γi, d; tot_iterations = 5)
     #useful for later (the function a appears
     #  in the inferred time factor node)
 
-    pcache = [(1-λi)^t for t = 1:T+1]
-    a(t) = t <= 0 ? 1.0 : pcache[t]
-    
+    #pcache = [(1-λi)^t for t = 1:T+1]
+    #a(t) = t <= 0 ? 1.0 : pcache[t]
+    a = Dict(zip(-T-2:T+1,[ t<=0 ? 1 : (1-λi)^t for t = -T-2:T+1]));
     
     ν = fill(0.0, 0:T+1, 0:T+1, 0:T+1, 0:2)
     for iterations = 1:tot_iterations
@@ -202,7 +202,7 @@ function pop_dynamics(N, T, λp, λi, γp, γi, d; tot_iterations = 5)
 end
 
 
-function TracePhaseDiagram(γvalues, λvalues, N, T, d; tot_iterations=10000)
+function PhaseDiagram(γvalues, λvalues, N, T, d; tot_iterations=10000)
     inf_out = zeros(length(γvalues),length(λvalues), T + 2) # 1 value for pdiag and T+1 values for the AUC
     pr = Progress(length(γvalues) * length(λvalues))
     Threads.@threads for (γcount,λcount) in collect(product(1:length(γvalues),1:length(λvalues)))
@@ -231,16 +231,18 @@ function avgAUC(marg)
             for τj = τi + 1 : T + 1
                 (sum(marg[l + 1, :, τj]) == 0) && continue
                 #@show l,τi,τj
-                #if you think at the perfect inference you understand that for t=τj you would sum the diagonal
+                # at the perfect inference for t=τj you would sum the diagonal
                 for t = τi : τj - 1
                     count[t] += 1
                     pi = sum(marg[l, 0:t, τi])
                     pj = sum(marg[l+1, 0:t, τj])
                     AUC[t] += (pi > pj)
+                    pi ≈ pj && (AUC[t] += 1/2) 
                     #@show t,pi,pj
                 end
             end
         end
     end
-    return AUC ./ count
+    AUC ./= count
+    return [AUC[t] for t = 0:T]
 end
