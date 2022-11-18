@@ -223,28 +223,28 @@ end
 function avgAUC(marg)
     N = size(marg,1)
     T = size(marg,2) - 2
-    perm = collect(1:N)
-    shuffle!(perm)
     AUC = OffsetArrays.OffsetArray(zeros(T+1),-1)
     count = OffsetArrays.OffsetArray(zeros(T+1),-1)
-    for l = 1 :  N - 1
-        result = 0
-        for τi = 0 : T
-            (sum(marg[perm[l], :, τi]) == 0 ) && continue
-            for τj = τi + 1 : T + 1
-                (sum(marg[perm[l + 1], :, τj]) == 0) && continue
-                #@show l,τi,τj
-                # at the perfect inference for t=τj you would sum the diagonal
-                for t = τi : τj - 1
-                    count[t] += 1
-                    pi = sum(marg[perm[l], 0:t, τi])
-                    pj = sum(marg[perm[l+1], 0:t, τj])
-                    if pi ≈ pj
-                        AUC[t] += 1/2
-                    elseif pi > pj
-                        AUC[t] += 1
+    for l = 1 :  N 
+        for m = l + 1 : N
+            result = 0
+            for τi = 0 : T
+                (sum(marg[l, :, τi]) == 0 ) && continue
+                for τj = τi + 1 : T + 1
+                    (sum(marg[m, :, τj]) == 0) && continue
+                    #@show l,τi,τj
+                    # at the perfect inference for t=τj you would sum the diagonal
+                    for t = τi : τj - 1
+                        count[t] += 1
+                        pi = sum(marg[l, 0:t, τi])
+                        pj = sum(marg[m, 0:t, τj])
+                        if pi ≈ pj
+                            AUC[t] += 1/2
+                        elseif pi > pj
+                            AUC[t] += 1
+                        end
+                        #@show t,pi,pj
                     end
-                    #@show t,pi,pj
                 end
             end
         end
