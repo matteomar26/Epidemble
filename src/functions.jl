@@ -1,4 +1,4 @@
-using Random: shuffle!
+#using Random: shuffle!
 #obs(ti, taui) = (ti == taui)
 obs(ti, taui) = ((ti <= T) == (taui<=T))
 
