@@ -1,3 +1,4 @@
+using Distributions
 #using Random: shuffle!
 #obs(ti, taui) = (ti == taui)
 obs(ti, taui) = ((ti <= T) == (taui<=T))
@@ -125,17 +126,24 @@ function update_marginal!(marg,l,ν1,ν2,Σ,sij,sji,T)
     marg[l,:,:] ./= sum(@view marg[l,:,:])
 end
 
-function rand_disorder(γp,λp)
+function rand_disorder(γp,λp, dist, paramdist)
     r = 1.0 / log(1-λp)
     sij = floor(Int,log(rand())*r) + 1
     sji = floor(Int,log(rand())*r) + 1
     xi0 = (rand() < γp);
-    return xi0,sij,sji
+
+    if dist=="poisson"
+        d = rand(Poisson(paramdist))
+    elseif dist=="regular"
+        d = paramdist
+    else
+        println("dist should be poisson or regular")
+    end   
+    
+    return xi0,sij,sji, d
 end
 
-
-
-function pop_dynamics(N, T, λp, λi, γp, γi, d; tot_iterations = 5)
+function pop_dynamics(N, T, λp, λi, γp, γi, dist, paramdist; tot_iterations = 5)
     μ = fill(1.0 / (6*(T+2)^2), 1:N, 0:T+1, 0:1, 0:T+1, 0:2)
 
     #Precalculation of the function a := (1-λ)^{tθ(t)}, 
@@ -151,7 +159,7 @@ function pop_dynamics(N, T, λp, λi, γp, γi, d; tot_iterations = 5)
         for l = 1:N
             # Extraction of disorder: state of individual i: xi0, delays: sij and sji
 
-            xi0,sij,sji = rand_disorder(γp,λp)
+            xi0,sij,sji,d = rand_disorder(γp,λp, dist, paramdist)
 
             # Initialization of ν=0
             ν .= 0.0
@@ -183,10 +191,11 @@ function pop_dynamics(N, T, λp, λi, γp, γi, d; tot_iterations = 5)
     # In order to extract a ν we have to extract d-1 μ's. Therefore we extract two groups of 
     # d-1 μ's and from them we calculate the two ν's. We also have to extract disorder.
     for l = 1:N
+        xi0,sij,sji,d = rand_disorder(γp,λp, dist, paramdist) #planted disorder
+
         group1 = rand(1:N,d-1) #groups of neighbours 
         group2 = rand(1:N,d-1)
 
-        xi0,sij,sji = rand_disorder(γp,λp) #planted disorder
         xj0 = (rand() < γp);
 
         ν1 = fill(0.0, 0:T+1, 0:T+1, 0:T+1, 0:2)
@@ -203,13 +212,13 @@ function pop_dynamics(N, T, λp, λi, γp, γi, d; tot_iterations = 5)
 end
 
 
-function PhaseDiagram(γvalues, λvalues, N, T, d; tot_iterations=10000)
+function PhaseDiagram(γvalues, λvalues, N, T, dist, paramdist; tot_iterations=10000)
     inf_out = zeros(length(γvalues),length(λvalues), T + 2) # 1 value for pdiag and T+1 values for the AUC
     pr = Progress(length(γvalues) * length(λvalues))
     Threads.@threads for (γcount,λcount) in collect(product(1:length(γvalues),1:length(λvalues)))
         λi = λp = λvalues[λcount]
         γi = γp = γvalues[γcount]
-        marg = pop_dynamics(N, T, λp, λi, γp, γi, d, tot_iterations = tot_iterations)
+        marg = pop_dynamics(N, T, λp, λi, γp, γi, dist, paramdist, tot_iterations = tot_iterations)
         marg2D = reshape((sum(marg,dims=1)./ N),T+2,T+2);
         # we sum over the trace of the 2D marginal to find the probability to infere correctly
         inf_out[γcount,λcount,1] = sum([marg2D[t,t] for t=1:T+2])
