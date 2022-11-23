@@ -132,14 +132,12 @@ function rand_disorder(γp,λp, dist, paramdist)
     sji = floor(Int,log(rand())*r) + 1
     xi0 = (rand() < γp);
 
+    @assert (dist in ["poisson","regular"]) "dist should be poisson or regular"
     if dist=="poisson"
         d = rand(Poisson(paramdist))
     elseif dist=="regular"
         d = paramdist
-    else
-        println("dist should be poisson or regular")
-    end   
-    
+    end
     return xi0,sij,sji, d
 end
 
