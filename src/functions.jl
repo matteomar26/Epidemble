@@ -1,8 +1,8 @@
 using Distributions: Poisson #in order to simulate poisson degree
 #obs(ti, taui) = (ti == taui)
-obs(ti, taui) = ((ti <= T) == (taui<=T))
+#obs(ti, taui) = ((ti <= T) == (taui<=T))
 
-function obsnoise(ti, taui; fr = 0.0, dilution = 0.0)
+function obs(ti, taui; fr = 0.0, dilution = 0.0)
     if rand() >= dilution
         return (((ti <= T) == (taui<=T)) ? 1.0 - fr : fr)
     else
@@ -16,10 +16,9 @@ function calculate_ν!(ν,μ,neighbours,xi0,T,γi,a)
             for ti = 0:T+1
                 #first we check consistency between
                 # the planted time τi and the inferred 
-                #time ti by checking the observation constraint            
-                #if ((ti==T+1)&&(τi<=T)) || ((ti<=T)&&(τi==T+1))  
-                #if (ti <= T) != (τi <= T) #if the observation is NOT satisfied
-                if !obs(ti,τi) #if the observation is NOT satisfied
+                #time ti by checking the observation constraint
+                ξ = obs(ti,τi)
+                if ξ == 0.0 #if the observation is NOT satisfied
                     continue  # ν = 0
                 end
                 #Since they both depend on ti only,
@@ -42,9 +41,9 @@ function calculate_ν!(ν,μ,neighbours,xi0,T,γi,a)
                 end
                 #Now we have everything to calculate ν
                 for tj=0:T+1                
-                    ν[ti,tj,τi,1] = seed * (a[ti-tj-1] * m1 - phi * a[ti-tj] * m2)
+                    ν[ti,tj,τi,1] = ξ  * seed * (a[ti-tj-1] * m1 - phi * a[ti-tj] * m2)
                     # We use the fact that ν for σ=2 is just ν at σ=1 plus a term
-                    ν[ti,tj,τi,2] = ν[ti,tj,τi,1] + (τi<T+1) * seed * (phi * a[ti-tj] * m4 - a[ti-tj-1] * m3)
+                    ν[ti,tj,τi,2] = ν[ti,tj,τi,1] + ξ * (τi<T+1) * seed * (phi * a[ti-tj] * m4 - a[ti-tj-1] * m3)
                 end
             end
         end
@@ -56,7 +55,8 @@ function calculate_ν!(ν,μ,neighbours,xi0,T,γi,a)
 
         for tj = 0:T+1
             for ti = 0:T+1
-                if !obs(ti,0)  #if the observation is NOT satisfied
+                ξ = obs(ti,0)
+                if ξ == 0.0  #if the observation is NOT satisfied
                     continue
                 end
                 #we can calculate ν now because it is constant
@@ -72,7 +72,7 @@ function calculate_ν!(ν,μ,neighbours,xi0,T,γi,a)
                     m2 *= μ[k,ti,0,0,0] + μ[k,ti,0,0,1] + μ[k,ti,0,0,2]
                 end
                 #We calculate ν in the zero patient case
-                ν[ti,tj,0,:] .= seed * (a[ti-1-tj] * m1 - phi * a[ti-tj] * m2)
+                ν[ti,tj,0,:] .= ξ * seed * (a[ti-1-tj] * m1 - phi * a[ti-tj] * m2)
             end
         end
     end
