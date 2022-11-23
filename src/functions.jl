@@ -1,7 +1,14 @@
-using Distributions
-#using Random: shuffle!
+using Distributions: Poisson #in order to simulate poisson degree
 #obs(ti, taui) = (ti == taui)
 obs(ti, taui) = ((ti <= T) == (taui<=T))
+
+function obsnoise(ti, taui; fr = 0.0, dilution = 0.0)
+    if rand() >= dilution
+        return (((ti <= T) == (taui<=T)) ? 1.0 - fr : fr)
+    else
+        return 1.0
+    end
+end
 
 function calculate_ν!(ν,μ,neighbours,xi0,T,γi,a)
     if xi0 == 0
