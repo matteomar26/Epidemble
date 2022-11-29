@@ -1,4 +1,4 @@
-using Distributions: Poisson #in order to simulate poisson degree
+using Distributions: Poisson #in order to simulate Poisson degree
 #obs(ti, taui) = (ti == taui)
 #obs(ti, taui) = ((ti <= T) == (taui<=T))
 
@@ -10,14 +10,14 @@ function obs(ti, taui; fr = 0.0, dilution = 0.0)
     end
 end
 
-function calculate_ν!(ν,μ,neighbours,xi0,T,γi,a)
+function calculate_ν!(ν,μ,neighbours,xi0,T,γi,a; fr = 0.0, dilution = 0.0)
     if xi0 == 0
         for τi = 0:T+1
             for ti = 0:T+1
                 #first we check consistency between
                 # the planted time τi and the inferred 
                 #time ti by checking the observation constraint
-                ξ = obs(ti,τi)
+                ξ = obs(ti,τi,fr=fr,dilution=dilution)
                 if ξ == 0.0 #if the observation is NOT satisfied
                     continue  # ν = 0
                 end
@@ -55,7 +55,7 @@ function calculate_ν!(ν,μ,neighbours,xi0,T,γi,a)
 
         for tj = 0:T+1
             for ti = 0:T+1
-                ξ = obs(ti,0)
+                ξ = obs(ti,0,fr=fr,dilution=dilution )
                 if ξ == 0.0  #if the observation is NOT satisfied
                     continue
                 end
@@ -148,7 +148,7 @@ function rand_disorder(γp,λp, dist, paramdist)
     return xi0,sij,sji, d
 end
 
-function pop_dynamics(N, T, λp, λi, γp, γi, dist, paramdist; tot_iterations = 5)
+function pop_dynamics(N, T, λp, λi, γp, γi, dist, paramdist; tot_iterations = 5, fr = 0.0, dilution = 0.0)
     μ = fill(1.0 / (6*(T+2)^2), 1:N, 0:T+1, 0:1, 0:T+1, 0:2)
 
     #Precalculation of the function a := (1-λ)^{tθ(t)}, 
@@ -173,7 +173,7 @@ function pop_dynamics(N, T, λp, λi, γp, γi, dist, paramdist; tot_iterations 
             neighbours = rand(1:N,d-1)
 
             #Beginning of calculations: we start by calculating the ν: 
-            calculate_ν!(ν,μ,neighbours,xi0,T,γi,a)
+            calculate_ν!(ν,μ,neighbours,xi0,T,γi,a,fr=fr,dilution=dilution)
 
             # Now we use the ν vector just calculated to extract the new μ.
             # We overwrite the μ in postition μ[l,:,:,:,:]
@@ -206,8 +206,8 @@ function pop_dynamics(N, T, λp, λi, γp, γi, dist, paramdist; tot_iterations 
         ν1 = fill(0.0, 0:T+1, 0:T+1, 0:T+1, 0:2)
         ν2 = fill(0.0, 0:T+1, 0:T+1, 0:T+1, 0:2)
 
-        calculate_ν!(ν1,μ,group1,xi0,T,γi,a)
-        calculate_ν!(ν2,μ,group2,xj0,T,γi,a)
+        calculate_ν!(ν1,μ,group1,xi0,T,γi,a,fr=fr,dilution=dilution)
+        calculate_ν!(ν2,μ,group2,xj0,T,γi,a,fr=fr,dilution=dilution)
 
         #Once the ν are calculated we have to cumulate with respect the third argument
         Σ = cumsum(ν2,dims=3)
@@ -217,13 +217,13 @@ function pop_dynamics(N, T, λp, λi, γp, γi, dist, paramdist; tot_iterations 
 end
 
 
-function PhaseDiagram(γvalues, λvalues, N, T, dist, paramdist; tot_iterations=10000)
+function PhaseDiagram(γvalues, λvalues, N, T, dist, paramdist; tot_iterations=10000, fr = 0.0, dilution = 0.0)
     inf_out = zeros(length(γvalues),length(λvalues), T + 2) # 1 value for pdiag and T+1 values for the AUC
     pr = Progress(length(γvalues) * length(λvalues))
     Threads.@threads for (γcount,λcount) in collect(product(1:length(γvalues),1:length(λvalues)))
         λi = λp = λvalues[λcount]
         γi = γp = γvalues[γcount]
-        marg = pop_dynamics(N, T, λp, λi, γp, γi, dist, paramdist, tot_iterations = tot_iterations)
+        marg = pop_dynamics(N, T, λp, λi, γp, γi, dist, paramdist, tot_iterations = tot_iterations, fr=fr, dilution=dilution)
         marg2D = reshape((sum(marg,dims=1)./ N),T+2,T+2);
         # we sum over the trace of the 2D marginal to find the probability to infere correctly
         inf_out[γcount,λcount,1] = sum([marg2D[t,t] for t=1:T+2])
