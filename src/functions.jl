@@ -141,7 +141,7 @@ function rand_disorder(γp,λp, dist, paramdist)
 
     @assert (dist in ["poisson","regular"]) "dist should be poisson or regular"
     if dist=="poisson"
-        d = rand(Poisson(paramdist))
+        d = rand(Poisson(paramdist)) + 1
     elseif dist=="regular"
         d = paramdist
     end
@@ -170,6 +170,7 @@ function pop_dynamics(N, T, λp, λi, γp, γi, dist, paramdist; tot_iterations 
             ν .= 0.0
 
             #Extraction of d-1 μ's from population
+            #@show d-1
             neighbours = rand(1:N,d-1)
 
             #Beginning of calculations: we start by calculating the ν: 
