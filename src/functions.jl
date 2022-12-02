@@ -168,9 +168,7 @@ function pop_dynamics(N, T, λp, λi, γp, γi, dist, paramdist; tot_iterations 
 
             # Initialization of ν=0
             ν .= 0.0
-
             #Extraction of d-1 μ's from population
-            #@show d-1
             neighbours = rand(1:N,d-1)
 
             #Beginning of calculations: we start by calculating the ν: 
@@ -218,7 +216,7 @@ function pop_dynamics(N, T, λp, λi, γp, γi, dist, paramdist; tot_iterations 
 end
 
 
-function PhaseDiagram(γvalues, λvalues, N, T, dist, paramdist; tot_iterations=10000, fr = 0.0, dilution = 0.0)
+function PhaseDiagram(γvalues, λvalues, N, T, dist, paramdist; tot_iterations=2, fr = 0.0, dilution = 0.0)
     inf_out = zeros(length(γvalues),length(λvalues), T + 2) # 1 value for pdiag and T+1 values for the AUC
     pr = Progress(length(γvalues) * length(λvalues))
     Threads.@threads for (γcount,λcount) in collect(product(1:length(γvalues),1:length(λvalues)))
@@ -247,7 +245,6 @@ function avgAUC(marg)
                 (sum(marg[l, :, τi]) == 0 ) && continue
                 for τj = τi + 1 : T + 1
                     (sum(marg[m, :, τj]) == 0) && continue
-                    #@show l,τi,τj
                     # at the perfect inference for t=τj you would sum the diagonal
                     for t = τi : τj - 1
                         count[t] += 1
@@ -258,7 +255,6 @@ function avgAUC(marg)
                         elseif pi > pj
                             AUC[t] += 1
                         end
-                        #@show t,pi,pj
                     end
                 end
             end
