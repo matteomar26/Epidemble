@@ -2,23 +2,24 @@ using Distributions: Poisson #in order to simulate Poisson degree
 #obs(ti, taui) = (ti == taui)
 #obs(ti, taui) = ((ti <= T) == (taui<=T))
 
-function obs(ti, taui; fr = 0.0, dilution = 0.0)
+function obs(ti, taui, ci; dilution = 0.0)
     if rand() >= dilution
-        return (((ti <= T) == (taui<=T)) ? 1.0 - fr : fr)
+        o = (ci == 0 ? (taui<=T) : (taui>T))
+        return ((ti <= T) == o)
     else
-        return 1.0
+        return 1
     end
 end
 
-function calculate_ν!(ν,μ,neighbours,xi0,T,γi,a; fr = 0.0, dilution = 0.0)
+function calculate_ν!(ν,μ,neighbours,xi0,T,γi,a,ci; dilution = 0.0)
     if xi0 == 0
         for τi = 0:T+1
             for ti = 0:T+1
                 #first we check consistency between
                 # the planted time τi and the inferred 
                 #time ti by checking the observation constraint
-                ξ = obs(ti,τi,fr=fr,dilution=dilution)
-                if ξ == 0.0 #if the observation is NOT satisfied
+                ξ = obs(ti,τi,ci,dilution=dilution)
+                if ξ == 0 #if the observation is NOT satisfied
                     continue  # ν = 0
                 end
                 #Since they both depend on ti only,
@@ -41,9 +42,9 @@ function calculate_ν!(ν,μ,neighbours,xi0,T,γi,a; fr = 0.0, dilution = 0.0)
                 end
                 #Now we have everything to calculate ν
                 for tj=0:T+1                
-                    ν[ti,tj,τi,1] = ξ  * seed * (a[ti-tj-1] * m1 - phi * a[ti-tj] * m2)
+                    ν[ti,tj,τi,1] = seed * (a[ti-tj-1] * m1 - phi * a[ti-tj] * m2)
                     # We use the fact that ν for σ=2 is just ν at σ=1 plus a term
-                    ν[ti,tj,τi,2] = ν[ti,tj,τi,1] + ξ * (τi<T+1) * seed * (phi * a[ti-tj] * m4 - a[ti-tj-1] * m3)
+                    ν[ti,tj,τi,2] = ν[ti,tj,τi,1] + (τi<T+1) * seed * (phi * a[ti-tj] * m4 - a[ti-tj-1] * m3)
                 end
             end
         end
@@ -55,8 +56,8 @@ function calculate_ν!(ν,μ,neighbours,xi0,T,γi,a; fr = 0.0, dilution = 0.0)
 
         for tj = 0:T+1
             for ti = 0:T+1
-                ξ = obs(ti,0,fr=fr,dilution=dilution )
-                if ξ == 0.0  #if the observation is NOT satisfied
+                ξ = obs(ti,0,ci,dilution=dilution )
+                if ξ == 0 #if the observation is NOT satisfied
                     continue
                 end
                 #we can calculate ν now because it is constant
@@ -72,7 +73,7 @@ function calculate_ν!(ν,μ,neighbours,xi0,T,γi,a; fr = 0.0, dilution = 0.0)
                     m2 *= μ[k,ti,0,0,0] + μ[k,ti,0,0,1] + μ[k,ti,0,0,2]
                 end
                 #We calculate ν in the zero patient case
-                ν[ti,tj,0,:] .= ξ * seed * (a[ti-1-tj] * m1 - phi * a[ti-tj] * m2)
+                ν[ti,tj,0,:] .= seed * (a[ti-1-tj] * m1 - phi * a[ti-tj] * m2)
             end
         end
     end
@@ -133,11 +134,12 @@ function update_marginal!(marg,l,ν1,ν2,Σ,sij,sji,T)
     marg[l,:,:] ./= sum(@view marg[l,:,:])
 end
 
-function rand_disorder(γp,λp, dist, paramdist)
+function rand_disorder(γp,λp, dist, paramdist; fr = 0.0)
     r = 1.0 / log(1-λp)
     sij = floor(Int,log(rand())*r) + 1
     sji = floor(Int,log(rand())*r) + 1
     xi0 = (rand() < γp);
+    ci  = rand() < fr
 
     @assert (dist in ["poisson","regular"]) "dist should be poisson or regular"
     if dist=="poisson"
@@ -145,7 +147,7 @@ function rand_disorder(γp,λp, dist, paramdist)
     elseif dist=="regular"
         d = paramdist
     end
-    return xi0,sij,sji, d
+    return xi0,sij,sji,d,ci
 end
 
 function pop_dynamics(N, T, λp, λi, γp, γi, dist, paramdist; tot_iterations = 5, fr = 0.0, dilution = 0.0)
@@ -164,7 +166,7 @@ function pop_dynamics(N, T, λp, λi, γp, γi, dist, paramdist; tot_iterations 
         for l = 1:N
             # Extraction of disorder: state of individual i: xi0, delays: sij and sji
 
-            xi0,sij,sji,d = rand_disorder(γp,λp, dist, paramdist)
+            xi0,sij,sji,d,ci = rand_disorder(γp,λp, dist, paramdist, fr = fr)
 
             # Initialization of ν=0
             ν .= 0.0
@@ -172,7 +174,7 @@ function pop_dynamics(N, T, λp, λi, γp, γi, dist, paramdist; tot_iterations 
             neighbours = rand(1:N,d-1)
 
             #Beginning of calculations: we start by calculating the ν: 
-            calculate_ν!(ν,μ,neighbours,xi0,T,γi,a,fr=fr,dilution=dilution)
+            calculate_ν!(ν,μ,neighbours,xi0,T,γi,a,ci,dilution=dilution)
 
             # Now we use the ν vector just calculated to extract the new μ.
             # We overwrite the μ in postition μ[l,:,:,:,:]
@@ -195,18 +197,19 @@ function pop_dynamics(N, T, λp, λi, γp, γi, dist, paramdist; tot_iterations 
     # In order to extract a ν we have to extract d-1 μ's. Therefore we extract two groups of 
     # d-1 μ's and from them we calculate the two ν's. We also have to extract disorder.
     for l = 1:N
-        xi0,sij,sji,d = rand_disorder(γp,λp, dist, paramdist) #planted disorder
+        xi0,sij,sji,d,ci = rand_disorder(γp,λp, dist, paramdist, fr = fr) #planted disorder
 
         group1 = rand(1:N,d-1) #groups of neighbours 
         group2 = rand(1:N,d-1)
 
-        xj0 = (rand() < γp);
+        xj0 = (rand() < γp)
+        cj = (rand() < fr)
 
         ν1 = fill(0.0, 0:T+1, 0:T+1, 0:T+1, 0:2)
         ν2 = fill(0.0, 0:T+1, 0:T+1, 0:T+1, 0:2)
 
-        calculate_ν!(ν1,μ,group1,xi0,T,γi,a,fr=fr,dilution=dilution)
-        calculate_ν!(ν2,μ,group2,xj0,T,γi,a,fr=fr,dilution=dilution)
+        calculate_ν!(ν1,μ,group1,xi0,T,γi,a,ci,dilution=dilution)
+        calculate_ν!(ν2,μ,group2,xj0,T,γi,a,cj,dilution=dilution)
 
         #Once the ν are calculated we have to cumulate with respect the third argument
         Σ = cumsum(ν2,dims=3)
