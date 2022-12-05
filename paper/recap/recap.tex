@@ -1,0 +1,190 @@
+\documentclass[a4paper, amsfonts, amssymb, amsmath, reprint, showkeys, nofootinbib, twoside, floatfix, pre,superscriptaddress]{revtex4-2}
+
+\usepackage[utf8]{inputenc}
+% \usepackage{geometry}
+% \geometry{verbose,lmargin=5cm,rmargin=2cm}
+\usepackage[left=23mm,right=13mm,top=35mm,columnsep=15pt]{geometry} 
+\setcounter{secnumdepth}{3}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{esint}
+\usepackage[unicode=true, pdfusetitle, bookmarks=true, bookmarksnumbered=false, bookmarksopen=false, breaklinks=false, pdfborder={0 0 1}, backref=false, colorlinks=false]{hyperref}
+%\usepackage[margin=0.5cm]{subcaption}
+\usepackage{graphicx}
+\graphicspath{ {./images/} }
+
+\makeatletter
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% User specified LaTeX commands.
+%\pdfoutput=1
+%
+% Document outline for use when preparing LaTeX manuscripts
+% for Elsevier Major Reference Works
+% To run with LaTeX $2\epsilon$
+%
+% MJR, October 2003
+%
+
+\usepackage{makeidx}\usepackage{amsfonts}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\makeatother
+
+\begin{document}
+\title{Ensemble Study for Inference of Epidemic Trajectories}
+
+\maketitle
+
+\section{Ensemble Study for Inference of Epidemic Trajectories}
+\subsection{Epidemic Inference}
+{\it SI model on graphs.}
+We consider the Susceptible-Infected (SI) model of spreading, defined over a graph $\mathcal{G}=(V,E)$.
+At time $t$ a node $i\in V$ can be in two states represented by a variable $x_i^t\in\{S,I\}$.
+At each time step, an infected node can infect each of its susceptible neighbors $\partial i$ with independent probabilities $\lambda_{ij}\in[0,1]$.
+The dynamic is irreversible: a given node can only undergo the transition $S\to I$. 
+Therefore the trajectory of an individual can be parameterized by its infection time $t_i$.
+We assume that a subset of the nodes initiate with an infection time $t_i=0$, i.e. $x_i^0=I$.
+A realization of the SI process can be univocally expressed in terms of the independent transmission delays $s_{ij}\in\{0, 1, \dots, \infty\}$, following a geometrical distribution $w_{ij}(s)=\lambda_{ij}(1-\lambda_{ij})^s$.
+Once the initial condition $\{x_i^0\}_{i\in V}$ and the set of transmission delays $\{s_{ij}\}_{(ij)\in E}$ is fixed, the infection times can be uniquely determined from the set of equations
+$$
+	t_i=\delta_{x_i^0,S}(\min_{j\in\partial i}\{t_j+s_{ji}\}+1)
+$$
+We assume that each individual has a probability $\gamma$ to be infected at time $t=0$, and we assume for simplicity that the transmission probabilities are site-independent: $\lambda_{ij}=\lambda$ for all $(ij)\in E$.
+The distribution of infection times conditioned on the realization of delays and on the initial condition can be written:
+\begin{align*}
+	P(\{t_i\}|\{x_i^0\},\{s_{ij}\})&=\prod_{i\in V}	\psi^*(t_i, t_{\partial i}, x_i^0, \{s_{ji}\}_{j\in\partial i}) 
+\end{align*}
+where $\psi^*$ enforces the above constraint on the infection times:
+\begin{align}
+	\label{eq:constraint_infection_times}
+	\psi^*=\mathbb{I}[t_i=\delta_{x_i^0,S}(\min_{j\in\partial i}\{t_j+s_{ji}\}+1)]
+\end{align}
+with $\mathbb{I}[A]$ the indicator function of the event $A$.
+Once averaged over the transmission delays and over the initial condition, we obtain the following distribution of times:
+\begin{align}
+	\label{eq:forward_averaged}
+	P(\{t_i\})&=\prod_{i\in V}\psi(t_i, t_{\partial i})
+\end{align}
+where:
+\begin{align*}
+	\psi=\sum_{x_i^0}\gamma(x_i^0)\sum_{\{s_{ji}\}_{j\in\partial i}}\prod_{j\in\partial i}w(s_{ji})\psi^*(t_i, t_{\partial i}, x_i^0, \{s_{ji}\}_{j\in\partial i})
+\end{align*}
+
+{\it Inferring individual's trajectories from partial observations.}
+In the inference problem we assume that some information $\mathcal{O}=\{o_i\}_{i\in\mathcal{S}}$ on the trajectory of a subset $\mathcal{S}$ of individuals is given by the result of medical tests. 
+Most of the time we will take $o_i=x_i^T$, i.e. we observe the state of an individual at time $t=T$.
+The probability of observations $P(\mathcal{O}|\{t_i\})$ factorizes over the individuals:
+\begin{align}
+\label{eq:observations}
+P(\mathcal{O}|\{t_i\})=\prod_{i\in\mathcal{S}}\rho(x_i^T|t_i) \ .
+\end{align}
+Using Bayes rule, the posterior probability of infection times is:
+\begin{align}
+\label{eq:posterior}
+	P(\{t_i\}|\mathcal{O}) = \frac{P(\{t_i\})P(\mathcal{O}|\{t_i\})}{P(\mathcal{O})}
+\end{align}
+with $P(\{t_i\})$ given in~(\ref{eq:forward_averaged}).
+In the simplest case, the state of each individual at time $t=T$ is perfectly known: $\mathcal{O}=\{x_i^T\}_{i\in V}$, and:
+\begin{align*}
+	\rho(x_i^T|t_i)=\mathbb{I}[x_i^t=r(t_i) ] \\
+	{\rm with} \quad r(t)=\begin{cases}
+		I & \text{if $t_i\leq T$}\\
+		S & \text{if $t_i>T$}
+\end{cases} \ .	
+\end{align*}
+One can also introduce some uncertainty in the result of medical tests, with probability $p$:
+\begin{align}
+	\label{eq:prob_falserate}
+	\rho(x_i^T|t_i)=(1-p)\mathbb{I}[x_i^T= r(t_i)] + p\mathbb{I}[x_i^T= 1-r(t_i)] 
+\end{align}
+(here for simplicity we take the same value for FNR and FPR: $p_{\rm FNR}=p_{\rm FPR}=p$, but we could generalize to different FNR and FPR values.)
+In the Bayes optimal setting, the parameters $(\lambda,\gamma, p)$ of the true trajectory are known, this means that the parameters ($\gamma, \lambda, p$) used in the posterior probability~(\ref{eq:posterior}) are the same than the true parameters used to generate the observations.
+However in real cases, the value of the parameters is not known, and we denote by ($\lambda^*, \gamma^*, p^*$) (resp. $\lambda^I, \gamma^I, p^I$) the parameters used to generate the observations (resp. to infer the infection times).
+
+\subsection{A graphical model for the joint distribution over planted and inferred trajectories}
+Our objective is to estimate how close is the time $t_i$ inferred from the posterior distribution given the observations $\mathcal{O}$ from the true infection time (that we denote $\tau_i$). 
+We consider the joint distribution over the true (or planted) times $\{\tau_i\}_{i\in V}$ and the inferred times $\{t_i\}_{i\in V}$:
+\begin{align}
+\label{eq:joint}
+\begin{aligned}
+	P(\{t_i\}, \{\tau_i\}) &= P(\{\tau_i\})\sum_{\mathcal{O}}P(\mathcal{O}|\{\tau_i\})P(\{t_i\}|\mathcal{O},\{\tau_i\})\\
+	&= P(\{\tau_i\})\sum_{\mathcal{O}}P(\mathcal{O}|\{\tau_i\})P(\{t_i\}|\mathcal{O})\\
+	&=P(\{\tau_i\})P(\{t_i\})\sum_{\mathcal{O}}\frac{P(\mathcal{O}|\{\tau_i\})P(\mathcal{O}|\{t_i\})}{P(\mathcal{O})}
+\end{aligned}
+\end{align}
+where in the second line we used $P(\{t_i\}|\mathcal{O},\{\tau_i\})=P(\{t_i\}|\mathcal{O})$, i.e. the probability law of $\{t_i\}$ conditioned on the observations $\{O\}$ and on the planted times $\{\tau_i\}$ depends only on the observations. In the third line we used the Bayes law~(\ref{eq:posterior}).
+In the Bayes optimal setting, i.e. when $(\lambda^*, \gamma^*, p^*)=(\lambda^I, \gamma^I, p^I)$, the joint probability $P(\{t_i\}, \{\tau_i\})$ is invariant under the permutation of its two arguments $\{t_i\}, \{\tau_i\}$.
+
+The probability distribution~(\ref{eq:joint}) cannot a priori be written as a graphical model because of the sum over the observations $\mathcal{O}$ and of the denominator $P(\mathcal{O})=\sum_{\{t_i\}}P(\{t_i\})P(\mathcal{O}|\{t_i\})$. 
+We instead consider the joint probability distribution {\it conditioned} on the realization of the true initial condition $\{x_i^0\}$, on the delays $\{s_{ij}\}$, and on the the realization of the noise in the observations. For the last one we introduce binary variables $c_i$, with $c_i=0$ when the observation is not corrupted ($x_i^T=r(\tau_i)$), and $c_i=1$ when the observation is corrupted: $x_i^T=\overline{r(\tau_i)}$ (with $\overline{r}$ the negation of $r$: if $r=I$ then $\overline{r}=S$). In this way, each $c_i$ is a Bernoulli variable of parameter $p$.
+We denote $\mathcal{D}=\{\{x_i^0, c_i\}_{i\in V}, \{s_{ij}\}_{(ij)\in E}\}$ a realization of the disorder.
+The joint probability of the planted times $\{\tau_i\}$, of the observations $\mathcal{O}=\{x_i^T\}$ and of the inferred times conditioned on the disorder is:
+\begin{align*}
+	P(\{t_i\},\mathcal{O},&\{\tau_i\}|\mathcal{D}) = P(\{\tau_i\}|\mathcal{D})P(\mathcal{O}, \{t_i\}|\mathcal{D},\{\tau_i\}) \\
+	&=P(\{\tau_i\}|\mathcal{D})P(\mathcal{O}|\mathcal{D},\{\tau_i\})P(\{t_i\}|\mathcal{D},\{\tau_i\}, \mathcal{O})\\
+	&=P(\{\tau_i\}|\mathcal{D})P(\mathcal{O}|\mathcal{D},\{\tau_i\})P(\{t_i\}|\mathcal{O})
+\end{align*}
+where in the last line we have again noted that the posterior distribution on the inferred times $\{t_i\}$ depends only on the observations: $P(\{t_i\}|\mathcal{D},\{\tau_i\}, \mathcal{O})=P(\{t_i\}|\mathcal{O})$.
+The first term in the product is:
+$$
+	P(\{\tau_i\}|\mathcal{D})=\prod_{i\in V}\psi^*(\tau_i, \underline{\tau}_i;x_i^0, \{s_{ji}\}_{j\in\partial i})
+$$
+with $\psi^*$ given in~(\ref{eq:constraint_infection_times}).
+The second term in the product is the probability of having observation $\mathcal{O}=\{x_i^T\}$ given the planted times $\{\tau_i\}$ and de disorder $\mathcal{D}$. Each $x_i^T$ is a deterministic function of $\tau_i$ and of the corruption variable $c_i$:
+$$
+	P(\mathcal{O}|\mathcal{D},\{\tau_i\}) = \prod_{i\in V}\mathbb{I}[x_i^T=c_i\overline{r(\tau_i)}+(1-c_i)r(\tau_i)]
+$$
+The third term is expressed using Baye's law:
+$$
+	P(\{t_i\}|\mathcal{O})=\frac{P(\{t_i\})P(\mathcal{O}|\{t_i\})}{P(\{O\})}
+$$
+with $P(\{t_i\})$ given in~(\ref{eq:forward_averaged}) and $P(\mathcal{O}|\{t_i\})$ given in~(\ref{eq:observations}) (with $\rho(x_i^T|\tau_i)$ given in~(\ref{eq:prob_falserate})).
+Finally, the denominator $$P(\mathcal{O})=\sum_{\{t_i\}}P(\{t_i\})P(\mathcal{O}|\{t_i\})$$ can be seen as a complicated function of the observations $\mathcal{O}$, but since we have fixed the disorder $\mathcal{D}=\{\{x_i^0, c_i\}_{i\in V}, \{s_{ij}\}_{(ij)\in E}\}$, the observations are a deterministic function of the disorder:
+$x_i^T=c_i\overline{r(\tau_i)}+(1-c_i)r(\tau_i)$, and $\tau_i$ is itself a function of the initial condition $\{x_i^0\}$ and of the delays $\{s_{ij}\}$. So we can re-write it as a normalization that depends only on the disorder:
+$$
+	P(\mathcal{O})=Z(\mathcal{D})
+$$
+We finally obtain a joint-probability on $\{\tau_i\}$, $\mathcal{O}$ and $\{t_i\}$ that is factorized (graphical model):
+\begin{align*}
+	P(\{t_i\}&,\mathcal{O},\{\tau_i\}|\mathcal{D}) = \frac{1}{Z(\mathcal{D})}\prod_{i\in V}\psi^*(\tau_i, \underline{\tau}_{\partial_i};x_i^0,\{s_{ji}\}_{j\in\partial i}) \\
+	&\times \psi(t_i,\underline{t}_{\partial i})\mathbb{I}[x_i^T=c_i\overline{r(\tau_i)}+(1-c_i)r(\tau_i)] \rho(x_i^T|t_i)
+\end{align*}
+Summing over the observations $\mathcal{O}=\{x_i^T\}$ is harmless since only one configuration $\{x_i^T\}_{i\in V}$ is accepted due to the indicator function above ($x_i^T$ is fixed by the disorder).
+We obtain the joint probability distribution of planted and inferred times $\{\tau_i\}, \{t_i\}$ conditioned on the disorder:
+\begin{align}
+\begin{aligned}
+	P(\{\tau_i\}, \{t_i\}|\mathcal{D})=\frac{1}{Z(\mathcal{D})}\prod_{i\in V}&\psi^*(\tau_i, \underline{\tau}_{\partial_i};x_i^0,\{s_{ji}\}_{j\in\partial i}) \\
+&\times \psi(t_i,\underline{t}_{\partial i})\xi(\tau_i, t_i;c_i)
+\end{aligned}
+\end{align}
+with:
+\begin{align}
+\begin{aligned}
+	\xi(\tau_i, t_i;c_i) &= \rho(x_i^T|t_i) \\
+	{\rm where} \quad x_i^T&=c_i\overline{r(\tau_i)}+(1-c_i)r(\tau_i)
+\end{aligned}
+\end{align}
+with $\rho(x|t)$ given in~(\ref{eq:prob_falserate}).
+
+{\it The case of perfect observations.}
+In that case the probability of error is zero: $p=0$ so the corrupted variables are always $c_i=0$ (no corruption), and $\rho(x_i^T|t_i)=\mathbb{I}[x_i^T=r(t_i)]$. The coupling term $\xi(\tau_i, t_i;c_i)$ between inferred and planted times in the joint probability becomes:
+\begin{align*}
+	\xi(\tau_i, t_i)=\mathbb{I}[r(\tau_i)=r(t_i)] \\
+	{\rm where} \quad r(t)=\begin{cases}
+	I & \text{if $t_i\leq T$}\\
+	S & \text{if $t_i>T$}
+	\end{cases} \ .
+\end{align*}
+
+\subsection{Belief-Propagation equations for the joint-probability}
+We introduce as auxiliary variables the copied times $\tau_i^{(j)}=\tau_i$, and $t_i^{(j)}=t_i$ for all $j\in\partial i$
+\subsection{Replica-Symmetric Equations}
+\section{Results}
+\subsection{Check against simulations}
+\subsection{Varying epidemic's parameters}
+\subsection{Varying the false positive/negative rates}
+
+
+\bibliography{draft}
+
+\end{document}
