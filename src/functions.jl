@@ -12,7 +12,7 @@ function obs(ti, taui, ci; fr = 0.0 ,dilution = 0.0)
     end
 end
 
-function calculate_ν!(ν,μ,neighbours,xi0,T,γi,a,ci; dilution = 0.0)
+function calculate_ν!(ν,μ,neighbours,xi0,T,γi,a,ci; fr = 0.0, dilution = 0.0)
     if xi0 == 0
         for τi = 0:T+1
             for ti = 0:T+1
@@ -175,7 +175,7 @@ function pop_dynamics(N, T, λp, λi, γp, γi, dist, paramdist; tot_iterations 
             neighbours = rand(1:N,d-1)
 
             #Beginning of calculations: we start by calculating the ν: 
-            calculate_ν!(ν,μ,neighbours,xi0,T,γi,a,ci,dilution=dilution)
+            calculate_ν!(ν,μ,neighbours,xi0,T,γi,a,ci,fr=fr,dilution=dilution)
 
             # Now we use the ν vector just calculated to extract the new μ.
             # We overwrite the μ in postition μ[l,:,:,:,:]
@@ -209,8 +209,8 @@ function pop_dynamics(N, T, λp, λi, γp, γi, dist, paramdist; tot_iterations 
         ν1 = fill(0.0, 0:T+1, 0:T+1, 0:T+1, 0:2)
         ν2 = fill(0.0, 0:T+1, 0:T+1, 0:T+1, 0:2)
 
-        calculate_ν!(ν1,μ,group1,xi0,T,γi,a,ci,dilution=dilution)
-        calculate_ν!(ν2,μ,group2,xj0,T,γi,a,cj,dilution=dilution)
+        calculate_ν!(ν1,μ,group1,xi0,T,γi,a,ci,fr=fr,dilution=dilution)
+        calculate_ν!(ν2,μ,group2,xj0,T,γi,a,cj,fr=fr,dilution=dilution)
 
         #Once the ν are calculated we have to cumulate with respect the third argument
         Σ = cumsum(ν2,dims=3)
