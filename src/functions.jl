@@ -2,12 +2,13 @@ using Distributions: Poisson #in order to simulate Poisson degree
 #obs(ti, taui) = (ti == taui)
 #obs(ti, taui) = ((ti <= T) == (taui<=T))
 
-function obs(ti, taui, ci; dilution = 0.0)
+
+function obs(ti, taui, ci; fr = 0.0 ,dilution = 0.0)
     if rand() >= dilution
         o = (ci == 0 ? (taui<=T) : (taui>T))
-        return ((ti <= T) == o)
+        return ( ((ti <= T) == o) * (1 - fr) + (((ti <= T) != o) * fr ) )
     else
-        return 1
+        return 1.0
     end
 end
 
@@ -18,7 +19,7 @@ function calculate_ν!(ν,μ,neighbours,xi0,T,γi,a,ci; dilution = 0.0)
                 #first we check consistency between
                 # the planted time τi and the inferred 
                 #time ti by checking the observation constraint
-                ξ = obs(ti,τi,ci,dilution=dilution)
+                ξ = obs(ti, τi, ci, fr = fr, dilution = dilution)
                 if ξ == 0 #if the observation is NOT satisfied
                     continue  # ν = 0
                 end
@@ -42,9 +43,9 @@ function calculate_ν!(ν,μ,neighbours,xi0,T,γi,a,ci; dilution = 0.0)
                 end
                 #Now we have everything to calculate ν
                 for tj=0:T+1                
-                    ν[ti,tj,τi,1] = seed * (a[ti-tj-1] * m1 - phi * a[ti-tj] * m2)
+                    ν[ti,tj,τi,1] = ξ * seed * (a[ti-tj-1] * m1 - phi * a[ti-tj] * m2)
                     # We use the fact that ν for σ=2 is just ν at σ=1 plus a term
-                    ν[ti,tj,τi,2] = ν[ti,tj,τi,1] + (τi<T+1) * seed * (phi * a[ti-tj] * m4 - a[ti-tj-1] * m3)
+                    ν[ti,tj,τi,2] = ν[ti,tj,τi,1] + ξ * (τi<T+1) * seed * (phi * a[ti-tj] * m4 - a[ti-tj-1] * m3)
                 end
             end
         end
@@ -56,7 +57,7 @@ function calculate_ν!(ν,μ,neighbours,xi0,T,γi,a,ci; dilution = 0.0)
 
         for tj = 0:T+1
             for ti = 0:T+1
-                ξ = obs(ti,0,ci,dilution=dilution )
+                ξ = obs(ti,0,ci, fr = fr, dilution=dilution )
                 if ξ == 0 #if the observation is NOT satisfied
                     continue
                 end
@@ -73,7 +74,7 @@ function calculate_ν!(ν,μ,neighbours,xi0,T,γi,a,ci; dilution = 0.0)
                     m2 *= μ[k,ti,0,0,0] + μ[k,ti,0,0,1] + μ[k,ti,0,0,2]
                 end
                 #We calculate ν in the zero patient case
-                ν[ti,tj,0,:] .= seed * (a[ti-1-tj] * m1 - phi * a[ti-tj] * m2)
+                ν[ti,tj,0,:] .= ξ * seed * (a[ti-1-tj] * m1 - phi * a[ti-tj] * m2)
             end
         end
     end
