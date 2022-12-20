@@ -88,34 +88,37 @@ function calculate_ν!(ν,μ,neighbours,xi0,T,γi,a; fr = 0.0, dilution = 0.0)
 end
 
 
-function update_μ!(μ,ν,Σ,l,sij,sji,T,a)
+function update_μ!(μ,ν,Σ,l,sij,sji,T,a,P)
     μ[l,:,:,:,:] .= 0
-    for tj = 0:T+1
+    @inbounds for tj = 0:T+1
         for τj = 0:T+1
             #First of all we set to 0 the function we want to update
             #because later we want to sum over it
+            P .= 0.0
             for ti = 0:T+1
                 #we pre calculate the value of the summed part
                 # so not to calculate it twice
                 Γ = Σ[ti,tj,min(τj+sji-1,T+1),2] - (τj-sij>=0)*Σ[ti,tj,max(τj-sij,0),2]+(τj+sji<=T+1)*ν[ti,tj,min(τj+sji,T+1),1]+
                     Σ[ti,tj,T+1,0] - Σ[ti,tj,min(τj+sji,T+1),0]
                 for c = 0:1
-                    μ[l,tj,c,τj,0] += a[tj-ti-c] * (τj-sij-1>=0) * Σ[ti,tj,max(τj-sij-1,0),2]
-                    μ[l,tj,c,τj,1] += a[tj-ti-c] * (τj-sij>=0) * ν[ti,tj,max(τj-sij,0),2]
-                    μ[l,tj,c,τj,2] += a[tj-ti-c] * Γ
+                    P[c,0] += a[tj-ti-c] * (τj-sij-1>=0) * Σ[ti,tj,max(τj-sij-1,0),2]
+                    P[c,1] += a[tj-ti-c] * (τj-sij>=0) * ν[ti,tj,max(τj-sij,0),2]
+                    P[c,2] += a[tj-ti-c] * Γ
                 end
             end
+            μ[l,tj,:,τj,:] = P
         end
     end
-    if any(isnan.(μ))
-        println("NaN in μ")
-        return
-    end
-    if sum(μ[l,:,:,:,:]) == 0
+    S = sum(@view μ[l,:,:,:,:])
+    if S == 0.0
         println("sum-zero μ")
         return
     end    
-    μ[l,:,:,:,:] ./= sum(@view μ[l,:,:,:,:]);
+    if isnan(S)
+        println("NaN in μ")
+        return
+    end
+    μ[l,:,:,:,:] ./= S;
 end
 
 function update_marginal!(marg,l,ν1,ν2,Σ,sij,sji,T)
@@ -150,6 +153,7 @@ end
 
 function pop_dynamics(N, T, λp, λi, γp, γi, dist, paramdist; tot_iterations = 5, fr = 0.0, dilution = 0.0)
     μ = fill(1.0 / (6*(T+2)^2), 1:N, 0:T+1, 0:1, 0:T+1, 0:2)
+    Paux = fill(0.0, 0:1, 0:2)
 
     #Precalculation of the function a := (1-λ)^{tθ(t)}, 
     #useful for later (the function a appears
@@ -157,7 +161,7 @@ function pop_dynamics(N, T, λp, λi, γp, γi, dist, paramdist; tot_iterations 
 
     #pcache = [(1-λi)^t for t = 1:T+1]
     #a(t) = t <= 0 ? 1.0 : pcache[t]
-    a = Dict(zip(-T-2:T+1,[ t<=0 ? 1 : (1-λi)^t for t = -T-2:T+1]));
+    a = Dict{Int,Float64}(zip(-T-2:T+1,[ t<=0 ? 1.0 : (1-λi)^t for t = -T-2:T+1]));
     
     ν = fill(0.0, 0:T+1, 0:T+1, 0:T+1, 0:2)
     for iterations = 1:tot_iterations
@@ -182,7 +186,7 @@ function pop_dynamics(N, T, λp, λi, γp, γi, dist, paramdist; tot_iterations 
             Σ = cumsum(ν,dims=3)
             
             #then we call the update μ function
-            update_μ!(μ,ν,Σ,l,sij,sji,T,a)     
+            update_μ!(μ,ν,Σ,l,sij,sji,T,a,Paux)     
         end
     end
     
