@@ -1,6 +1,4 @@
 using Distributions: Poisson #in order to simulate Poisson degree
-#obs(ti, taui) = (ti == taui)
-#obs(ti, taui) = ((ti <= T) == (taui<=T))
 
 function obs(ti, taui; fr = 0.0, dilution = 0.0)
     if rand() >= dilution
