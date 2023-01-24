@@ -147,9 +147,19 @@ function rand_disorder(γp,λp, dist, paramdist)
     elseif dist == "regular"
         d = paramdist
     elseif dist == "ft"
-        d = ft3() + 1
+        d = ft3(paramdist) + 1
     end
     return xi0,sij,sji, d
+end
+
+function ft3(d::Int)
+    r = 1.202057 * rand()
+    c = 0
+    for t = 1:1000000
+        c += 1/t^3
+        (c > r) && (return (t + d - 1 ))
+    end
+    return Inf
 end
 
 function pop_dynamics(N, T, λp, λi, γp, γi, dist, paramdist; tot_iterations = 5, fr = 0.0, dilution = 0.0)
@@ -244,7 +254,7 @@ function avgAUC(marg)
     AUC = OffsetArrays.OffsetArray(zeros(T+1),-1)
     count = OffsetArrays.OffsetArray(zeros(T+1),-1)
     for l = 1 :  N 
-        for m = l + 1 : N
+        for m = l + 1 : min(N,l+400)
             result = 0
             for τi = 0 : T
                 (sum(marg[l, :, τi]) == 0 ) && continue
