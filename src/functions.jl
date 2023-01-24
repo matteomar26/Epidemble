@@ -140,11 +140,14 @@ function rand_disorder(γp,λp, dist, paramdist)
     sji = floor(Int,log(rand())*r) + 1
     xi0 = (rand() < γp);
 
-    @assert (dist in ["poisson","regular"]) "dist should be poisson or regular"
-    if dist=="poisson"
+    @assert (dist in ["poisson","regular","ft"]) "dist should be poisson, regular or ft (fat-tailed)"
+    # d is the TOTAL (i.e. residual + 1) degree. 
+    if dist == "poisson"
         d = rand(Poisson(paramdist)) + 1
-    elseif dist=="regular"
+    elseif dist == "regular"
         d = paramdist
+    elseif dist == "ft"
+        d = ft3() + 1
     end
     return xi0,sij,sji, d
 end

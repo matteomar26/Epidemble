@@ -11,7 +11,7 @@ function sibyl(N, T, Λ, O, γ, λ ; maxit = 400, tol = 1e-14)
     prob_seed = γ
     pseed = prob_seed / (2 - prob_seed)
     psus = prob_sus * (1 - pseed)
-    params = sib.Params(prob_r=sib.Exponential(mu=0), pseed=pseed, psus=psus,pautoinf=1e-10,fp_rate=1e-10,fn_rate=1e-10)
+    params = sib.Params(prob_r=sib.Exponential(mu=0), pseed=pseed, psus=psus,pautoinf=1e-10)
     f = sib.FactorGraph(contacts=contacts, observations=obs, params=params)
     sib.iterate(f, maxit=maxit,tol=tol)
     sib.iterate(f, maxit=maxit, damping=0.5, tol=tol)
