@@ -12,6 +12,7 @@
 %\usepackage[margin=0.5cm]{subcaption}
 \usepackage{graphicx}
 \graphicspath{ {./images/} }
+\usepackage{xcolor}
 
 \makeatletter
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%% User specified LaTeX commands.
@@ -35,6 +36,10 @@
 
 \maketitle
 
+\section{Introduction}
+
+Hardness of SI inference.
+
 \section{Ensemble Study for Inference of Epidemic Trajectories}
 \subsection{Epidemic Inference}
 {\it SI model on graphs.}
@@ -46,13 +51,14 @@ Therefore the trajectory of an individual can be parameterized by its infection 
 We assume that a subset of the nodes initiate with an infection time $t_i=0$, i.e. $x_i^0=I$.
 A realization of the SI process can be univocally expressed in terms of the independent transmission delays $s_{ij}\in\{0, 1, \dots, \infty\}$, following a geometrical distribution $w_{ij}(s)=\lambda_{ij}(1-\lambda_{ij})^s$.
 Once the initial condition $\{x_i^0\}_{i\in V}$ and the set of transmission delays $\{s_{ij}\}_{(ij)\in E}$ is fixed, the infection times can be uniquely determined from the set of equations
-$$
+\begin{align}
+\label{eq:equation_infected_times}
 	t_i=\delta_{x_i^0,S}(\min_{j\in\partial i}\{t_j+s_{ji}\}+1)
-$$
+\end{align}
 We assume that each individual has a probability $\gamma$ to be infected at time $t=0$, and we assume for simplicity that the transmission probabilities are site-independent: $\lambda_{ij}=\lambda$ for all $(ij)\in E$.
 The distribution of infection times conditioned on the realization of delays and on the initial condition can be written:
 \begin{align*}
-	P(\{t_i\}|\{x_i^0\},\{s_{ij}\})&=\prod_{i\in V}	\psi^*(t_i, t_{\partial i}, x_i^0, \{s_{ji}\}_{j\in\partial i}) 
+	P(\{t_i\}|\{x_i^0\},\{s_{ij}\})&=\prod_{i\in V}	\psi^*(t_i, \underline{t}_{\partial i}, x_i^0, \{s_{ji}\}_{j\in\partial i}) 
 \end{align*}
 where $\psi^*$ enforces the above constraint on the infection times:
 \begin{align}
@@ -63,27 +69,25 @@ with $\mathbb{I}[A]$ the indicator function of the event $A$.
 Once averaged over the transmission delays and over the initial condition, we obtain the following distribution of times:
 \begin{align}
 	\label{eq:forward_averaged}
-	P(\{t_i\})&=\prod_{i\in V}\psi(t_i, t_{\partial i})
+	P(\{t_i\})&=\prod_{i\in V}\psi(t_i, \underline{t}_{\partial i})
 \end{align}
 where:
 \begin{align*}
-	\psi=\sum_{x_i^0}\gamma(x_i^0)\sum_{\{s_{ji}\}_{j\in\partial i}}\prod_{j\in\partial i}w(s_{ji})\psi^*(t_i, t_{\partial i}, x_i^0, \{s_{ji}\}_{j\in\partial i})
+	\psi&=\sum_{x_i^0}\gamma(x_i^0)\sum_{\{s_{ji}\}_{j\in\partial i}}\psi^*(t_i, \underline{t}_{\partial i}, x_i^0, \{s_{ji}\}_{j\in\partial i})\prod_{j\in\partial i}w(s_{ji})\\
+	&\ \text{and} \ \gamma(x) = \begin{cases}
+		\gamma \ \text{if} \ x=I \\
+		1-\gamma \ \text{if} \ x=S
+	\end{cases}
 \end{align*}
 
 {\it Inferring individual's trajectories from partial observations.}
 In the inference problem we assume that some information $\mathcal{O}=\{o_i\}_{i\in\mathcal{S}}$ on the trajectory of a subset $\mathcal{S}$ of individuals is given by the result of medical tests. 
 Most of the time we will take $o_i=x_i^T$, i.e. we observe the state of an individual at time $t=T$.
-The probability of observations $P(\mathcal{O}|\{t_i\})$ factorizes over the individuals:
+The probability of observations $P(\mathcal{O}|\{t_i\})$ factorizes over the set of individuals:
 \begin{align}
 \label{eq:observations}
 P(\mathcal{O}|\{t_i\})=\prod_{i\in\mathcal{S}}\rho(x_i^T|t_i) \ .
 \end{align}
-Using Bayes rule, the posterior probability of infection times is:
-\begin{align}
-\label{eq:posterior}
-	P(\{t_i\}|\mathcal{O}) = \frac{P(\{t_i\})P(\mathcal{O}|\{t_i\})}{P(\mathcal{O})}
-\end{align}
-with $P(\{t_i\})$ given in~(\ref{eq:forward_averaged}).
 In the simplest case, the state of each individual at time $t=T$ is perfectly known: $\mathcal{O}=\{x_i^T\}_{i\in V}$, and:
 \begin{align*}
 	\rho(x_i^T|t_i)=\mathbb{I}[x_i^t=r(t_i) ] \\
@@ -95,14 +99,20 @@ In the simplest case, the state of each individual at time $t=T$ is perfectly kn
 One can also introduce some uncertainty in the result of medical tests, with probability $p$:
 \begin{align}
 	\label{eq:prob_falserate}
-	\rho(x_i^T|t_i)=(1-p)\mathbb{I}[x_i^T= r(t_i)] + p\mathbb{I}[x_i^T= 1-r(t_i)] 
+	\rho(x_i^T|t_i)=(1-p)\mathbb{I}[x_i^T= r(t_i)] + p\mathbb{I}[x_i^T= \overline{r(t_i)}] 
 \end{align}
-(here for simplicity we take the same value for FNR and FPR: $p_{\rm FNR}=p_{\rm FPR}=p$, but we could generalize to different FNR and FPR values.)
+(with $\overline{r}$ the negation of $r$: if $r=I$ then $\overline{r}=S$). Here for simplicity we take the same value for FNR and FPR: $p_{\rm FNR}=p_{\rm FPR}=p$, but we could generalize to different FNR and FPR values.
+Using Bayes rule, the posterior probability of infection times is:
+\begin{align}
+\label{eq:posterior}
+P(\{t_i\}|\mathcal{O}) = \frac{P(\{t_i\})P(\mathcal{O}|\{t_i\})}{P(\mathcal{O})}
+\end{align}
+with $P(\{t_i\})$ given in~(\ref{eq:forward_averaged}).
 In the Bayes optimal setting, the parameters $(\lambda,\gamma, p)$ of the true trajectory are known, this means that the parameters ($\gamma, \lambda, p$) used in the posterior probability~(\ref{eq:posterior}) are the same than the true parameters used to generate the observations.
 However in real cases, the value of the parameters is not known, and we denote by ($\lambda^*, \gamma^*, p^*$) (resp. $\lambda^I, \gamma^I, p^I$) the parameters used to generate the observations (resp. to infer the infection times).
 
 \subsection{A graphical model for the joint distribution over planted and inferred trajectories}
-Our objective is to estimate how close is the time $t_i$ inferred from the posterior distribution given the observations $\mathcal{O}$ from the true infection time (that we denote $\tau_i$). 
+Our objective is to estimate how close is the time $t_i$ inferred from the posterior distribution given the observations $\mathcal{O}$, from the true infection time (that we denote $\tau_i$). 
 We consider the joint distribution over the true (or planted) times $\{\tau_i\}_{i\in V}$ and the inferred times $\{t_i\}_{i\in V}$:
 \begin{align}
 \label{eq:joint}
@@ -116,7 +126,8 @@ where in the second line we used $P(\{t_i\}|\mathcal{O},\{\tau_i\})=P(\{t_i\}|\m
 In the Bayes optimal setting, i.e. when $(\lambda^*, \gamma^*, p^*)=(\lambda^I, \gamma^I, p^I)$, the joint probability $P(\{t_i\}, \{\tau_i\})$ is invariant under the permutation of its two arguments $\{t_i\}, \{\tau_i\}$.
 
 The probability distribution~(\ref{eq:joint}) cannot a priori be written as a graphical model because of the sum over the observations $\mathcal{O}$ and of the denominator $P(\mathcal{O})=\sum_{\{t_i\}}P(\{t_i\})P(\mathcal{O}|\{t_i\})$. 
-We instead consider the joint probability distribution {\it conditioned} on the realization of the true initial condition $\{x_i^0\}$, on the delays $\{s_{ij}\}$, and on the the realization of the noise in the observations. For the last one we introduce binary variables $c_i$, with $c_i=0$ when the observation is not corrupted ($x_i^T=r(\tau_i)$), and $c_i=1$ when the observation is corrupted: $x_i^T=\overline{r(\tau_i)}$ (with $\overline{r}$ the negation of $r$: if $r=I$ then $\overline{r}=S$). In this way, each $c_i$ is a Bernoulli variable of parameter $p$.
+We instead consider the joint probability distribution {\it conditioned} on the realization of the true initial condition $\{x_i^0\}$, on the delays $\{s_{ij}\}$, and on the the realization of the noise in the observations. 
+For the last one, we introduce binary variables $c_i$, with $c_i=0$ when the observation is not corrupted ($x_i^T=r(\tau_i)$), and $c_i=1$ when the observation is corrupted: $x_i^T=\overline{r(\tau_i)}$. In this way, each $c_i$ is a Bernoulli variable of parameter $p$.
 We denote $\mathcal{D}=\{\{x_i^0, c_i\}_{i\in V}, \{s_{ij}\}_{(ij)\in E}\}$ a realization of the disorder.
 The joint probability of the planted times $\{\tau_i\}$, of the observations $\mathcal{O}=\{x_i^T\}$ and of the inferred times conditioned on the disorder is:
 \begin{align*}
@@ -127,12 +138,12 @@ The joint probability of the planted times $\{\tau_i\}$, of the observations $\m
 where in the last line we have again noted that the posterior distribution on the inferred times $\{t_i\}$ depends only on the observations: $P(\{t_i\}|\mathcal{D},\{\tau_i\}, \mathcal{O})=P(\{t_i\}|\mathcal{O})$.
 The first term in the product is:
 $$
-	P(\{\tau_i\}|\mathcal{D})=\prod_{i\in V}\psi^*(\tau_i, \underline{\tau}_i;x_i^0, \{s_{ji}\}_{j\in\partial i})
+	P(\{\tau_i\}|\mathcal{D})=\prod_{i\in V}\psi^*(\tau_i, \underline{\tau}_{\partial i};x_i^0, \{s_{ji}\}_{j\in\partial i})
 $$
 with $\psi^*$ given in~(\ref{eq:constraint_infection_times}).
 The second term in the product is the probability of having observation $\mathcal{O}=\{x_i^T\}$ given the planted times $\{\tau_i\}$ and de disorder $\mathcal{D}$. Each $x_i^T$ is a deterministic function of $\tau_i$ and of the corruption variable $c_i$:
 $$
-	P(\mathcal{O}|\mathcal{D},\{\tau_i\}) = \prod_{i\in V}\mathbb{I}[x_i^T=c_i\overline{r(\tau_i)}+(1-c_i)r(\tau_i)]
+	P(\mathcal{O}|\mathcal{D},\{\tau_i\}) = \prod_{i\in V}\mathbb{I}[x_i^T=(1-c_i)r(\tau_i)+c_i\overline{r(\tau_i)}]
 $$
 The third term is expressed using Baye's law:
 $$
@@ -144,14 +155,15 @@ $x_i^T=c_i\overline{r(\tau_i)}+(1-c_i)r(\tau_i)$, and $\tau_i$ is itself a funct
 $$
 	P(\mathcal{O})=Z(\mathcal{D})
 $$
-We finally obtain a joint-probability on $\{\tau_i\}$, $\mathcal{O}$ and $\{t_i\}$ that is factorized (graphical model):
+We obtain a joint-probability on $\{\tau_i\}$, $\mathcal{O}$ and $\{t_i\}$ that is factorized (graphical model):
 \begin{align*}
 	P(\{t_i\}&,\mathcal{O},\{\tau_i\}|\mathcal{D}) = \frac{1}{Z(\mathcal{D})}\prod_{i\in V}\psi^*(\tau_i, \underline{\tau}_{\partial_i};x_i^0,\{s_{ji}\}_{j\in\partial i}) \\
-	&\times \psi(t_i,\underline{t}_{\partial i})\mathbb{I}[x_i^T=c_i\overline{r(\tau_i)}+(1-c_i)r(\tau_i)] \rho(x_i^T|t_i)
+	&\times \psi(t_i,\underline{t}_{\partial i})\mathbb{I}[x_i^T=(1-c_i)r(\tau_i)+c_i\overline{r(\tau_i)}] \rho(x_i^T|t_i)
 \end{align*}
 Summing over the observations $\mathcal{O}=\{x_i^T\}$ is harmless since only one configuration $\{x_i^T\}_{i\in V}$ is accepted due to the indicator function above ($x_i^T$ is fixed by the disorder).
 We obtain the joint probability distribution of planted and inferred times $\{\tau_i\}, \{t_i\}$ conditioned on the disorder:
 \begin{align}
+\label{eq:joint_disorder}
 \begin{aligned}
 	P(\{\tau_i\}, \{t_i\}|\mathcal{D})=\frac{1}{Z(\mathcal{D})}\prod_{i\in V}&\psi^*(\tau_i, \underline{\tau}_{\partial_i};x_i^0,\{s_{ji}\}_{j\in\partial i}) \\
 &\times \psi(t_i,\underline{t}_{\partial i})\xi(\tau_i, t_i;c_i)
@@ -161,7 +173,7 @@ with:
 \begin{align}
 \begin{aligned}
 	\xi(\tau_i, t_i;c_i) &= \rho(x_i^T|t_i) \\
-	{\rm where} \quad x_i^T&=c_i\overline{r(\tau_i)}+(1-c_i)r(\tau_i)
+	{\rm where} \quad x_i^T&=(1-c_i)r(\tau_i)+c_i\overline{r(\tau_i)}
 \end{aligned}
 \end{align}
 with $\rho(x|t)$ given in~(\ref{eq:prob_falserate}).
@@ -177,12 +189,237 @@ In that case the probability of error is zero: $p=0$ so the corrupted variables 
 \end{align*}
 
 \subsection{Belief-Propagation equations for the joint-probability}
-We introduce as auxiliary variables the copied times $\tau_i^{(j)}=\tau_i$, and $t_i^{(j)}=t_i$ for all $j\in\partial i$
+The factor graph associated with the probability distribution~(\ref{eq:joint_disorder}) contains short loops which compromise the use of BP. 
+In order to remove these short loops, we introduce the auxiliary variables $(\tau_i^{(j)},\tau_j^{(i)},t_i^{(j)},t_j^{(i)})$ on each edge $(ij)\in E$ of the factor graph, which are the copied times $\tau_i^{(j)}=\tau_i$, and $t_i^{(j)}=t_i$ for all $j\in\partial i$.
+Let $T_{ij}=(\tau_i^{(j)},\tau_j^{(i)},t_i^{(j)},t_j^{(i)})$ be the tuple gathering the copied time on edge $(ij)\in E$.
+The probability distribution on these auxiliary variables is:
+\begin{align}
+	P(\{T_{ij}\}_{(ij)\in E}|\mathcal) &= \frac{1}{\mathcal{Z}(\mathcal{D})}\prod_{i\in V}\Psi(\{T_{il}\}_{l\in\partial i};\mathcal{D}_i) 
+\end{align}
+where $\mathcal{D}_i=\{\{s_{li}\}_{l\in\partial i},x_i^0, c_i\}$ is the disorder associated with vertex $i\in V$, and with:
+\begin{widetext}
+\begin{align}
+	\Psi(\{T_{il}\}_{l\in\partial i};\mathcal{D}_i) = \xi(\tau_i^{(j)},t_i^{(j)},c_i)\psi^*(\tau_i^{(j)},\underline{\tau}_{\partial i}^{(i)},\{s_{li}\}_{l\in\partial i},x_i^0)\psi(t_i^{(j)},\underline{t}_{\partial i}^{(i)})\prod_{l\in\partial i\setminus j}\delta_{t_i^{(j)},t_i^{(l)}}\delta_{\tau_i^{(j)},\tau_i^{(l)}}
+\end{align}
+\end{widetext}
+with $j\in\partial i$ a given neighbour of $i$. The factor graph associated with this probability distribution now mirrors the original graph $\mathcal{G}=(V,E)$ of contact between individuals.
+The variable vertices live on the edges $(ij)\in E$, and the factor vertices associated with the function $\Psi$ live on the original vertex set $V$. \textcolor{blue}{\it (add a figure)} 
+We introduce a set of BP messages $\{\nu_{\Psi_i\to j},\mu_{i\to\Psi_j}\}$ defined on each edge.
+They obey a set of self-consistent equations:
+\begin{widetext}	
+\begin{align}
+\label{eq:BP_equations}
+\begin{aligned}
+	\nu_{\Psi_i\to j}(T_{ij}) &= \frac{1}{z_{\Psi_i\to j}}\sum_{\{T_{il}\}_{k\in\partial i \setminus j}}\Psi(\{T_{il}\}_{l\in\partial i};\mathcal{D}_i)\prod_{k\in\partial i \setminus j}\mu_{k\to\Psi_i}(T_{ik}) \\
+	\mu_{i\to \Psi_j}(T_{ij}) &=\nu_{\Psi_i\to j}(T_{ij})
+\end{aligned}
+\end{align}
+\end{widetext}	
+were $z_{\Psi_i\to j}$ is a normalization factor. 
+These equations can be simplified, see appendix.
 \subsection{Replica-Symmetric Equations}
+
+
 \section{Results}
 \subsection{Check against simulations}
 \subsection{Varying epidemic's parameters}
 \subsection{Varying the false positive/negative rates}
+\subsection{Varying graph properties}
+Vary graph connectivity and graph ensembles (fat tail)
+\subsection{Departing from Bayes-optimal conditions}
+
+\section{Methods}
+\subsection{Observables}
+\subsection{Computing the AUC in the RS formalism}
+
+\section{Conclusion}
+
+\appendix
+\begin{widetext}
+\section{BP equations}
+We will use the change of variable $s_{ij}\leftarrow s_{ij}+1$, in such a way that the constraint (\ref{eq:equation_infected_times}) on the planted times becomes:
+$$
+\tau_i =\delta_{x_i^0,S}\min_{j\in\partial i}(\tau_j+s_{ji}) \,
+$$
+In the numerical implementation of the BP equations, it will be convenient to introduce a horizon time $\theta$, and to clamp infection times higher than $\theta$.
+This clamping results in a modification of the functions $\psi^*, \psi$:
+\begin{align}
+\begin{aligned}
+	\psi^*(\tau_i,\underline{\tau}_{\partial i},x_i^0,\{s_{ji}\}) &= \mathbb{I}[\tau_i=\delta_{x_i^0,S}\min(\theta,\min_{l\in\partial i}(\tau_l+s_{li}))] \ , \quad \text{and}\\
+	\psi(t_i,\underline{t}_{\partial i}) &=\sum_{x_i^0}\gamma(x_i^0)\sum_{s_{ji}}w'(s_{ji})\mathbb{I}[\tau_i=\delta_{x_i^0,S}\min(\theta,\min_{l\in\partial i}(\tau_l+s_{li}))] \ ,
+\end{aligned}
+\end{align}
+with $w'(s)=\lambda(1-\lambda)^{s-1}$.
+
+In order to simplify the BP equations~(\ref{eq:BP_equations}), we will start by writing the functions $\psi^*,\psi$ in a simpler way:
+\begin{align}
+	\psi^*(\tau_i^{(j)}, \underline{\tau}_{\partial i}^{(i)},\{s_{li}\}_{l\in\partial i},x_i^0) &= \delta_{x_i^0,I}\delta_{\tau_i^{(j)},0} + \delta_{x_i^0,S}\prod_{l\in\partial i}\mathbb{I}[\tau_i^{(j)}\leq\tau_l^{(i)}+s_{li}] - \delta_{x_i^0,S}\mathbb{I}[\tau_i^{(j)}<\theta]\prod_{l\in\partial i}\mathbb{I}[\tau_i^{(j)}<\tau_l^{(i)}+s_{li}]
+\end{align}
+and:
+\begin{align}
+\begin{aligned}
+	\psi(t_i^{(j)}, \underline{t}_{\partial i}^{(i)}) &= \sum_{x_i^0}\gamma(x_i^0)\sum_{\{s_{li}\}_{l\in\partial i}}\prod_{l\in\partial i}w'(s_{li})\mathbb{I}[t_i^{(j)}=\delta_{x_i^0,S}\min(\theta,t_l^{(i)}+s_{li})] \\
+	&= \gamma \delta_{\tau_i^{(j)},0} + (1-\gamma)\left[\prod_{l\in\partial_i}\left(\sum_{s=1}^{\infty}w'(s)\mathbb{I}[t_i^{(j)}\leq t_l^{(i)}+s]\right) - \mathbb{I}[\tau_i^{(j)}<\theta]\prod_{l\in\partial_i}\left(\sum_{s=1}^{\infty}w'(s)\mathbb{I}[t_i^{(j)}< t_l^{(i)}+s]\right)\right]\\
+	&= \gamma \delta_{\tau_i^{(j)},0} + (1-\gamma)\left[\prod_{l\in\partial_i}a(t_i^{(j)}-t_l^{(i)}-1) - \mathbb{I}[\tau_i^{(j)}<\theta]\prod_{l\in\partial_i}a(t_i^{(j)}-t_l^{(i)})\right]\\
+	&= \gamma(t_i^{(j)})\left(\prod_{l\in\partial i} a(t_i^{(j)}-t_l^{(i)}-1) - \phi(t_i^{(j)})\prod_{l\in\partial i}a(t_i^{(j)}-t_l^{(i)}) \right)
+\end{aligned}
+\end{align}
+where we have defined:
+\begin{align}
+\begin{aligned}
+	a(t) &= (1-\lambda)^{tH(t)} \\
+	\gamma(t) &= \begin{cases}
+	\gamma & \text{if} \quad t=0\\
+	1-\gamma & \text{if} \quad t>0
+	\end{cases} \ .\\
+	\phi(t) &= \begin{cases}
+	0 & \text{if} \quad t=0 \ \text{or} \ t=\theta\\
+	1 & \text{if} \quad 0<t<\theta
+	\end{cases} \ .
+\end{aligned}	
+\end{align}
+with $H(t)$ the Heaviside step function, with $H(0)=0$.
+We also notice that the function $\Psi$ constraints the planted and inferred times of the incoming messages to the equality: $\tau_i^{(k)}=\tau_i^{(j)}$, and $t_i^{(k)}=t_i^{(j)}$ for all $k\in\partial i \setminus j$.
+We can now re-write the first BP equation in (\ref{eq:BP_equations}), with the expression of $\psi^*, \psi$:
+\begin{align}
+\begin{aligned}
+	\nu_{\Psi_i\to j}(T_{ij}) &=\frac{\gamma(t_i^{(j)})\xi(\tau_i^{(j)},t_i^{(j)},c_i)}{z_{\Psi_i\to j}}\left(
+	a(t_i^{(j)}-t_j^{(i)}-1)\delta_{x_i^0,I}\delta_{\tau_i^{(j)},0}\prod_{k\in\partial i\setminus j}\left[\sum_{t_k^{(i)}}a(t_i^{(j)}-t_k^{(i)}-1)\sum_{\tau_k^{(i)}}\mu_{k\to \Psi_i}(T_{ki})\right]\right.\\
+	+&a(t_i^{(j)}-t_j^{(i)}-1)\delta_{x_i^0,S}\mathbb{I}[\tau_i^{(j)}\leq\tau_j^{(j)}+s_{ji}]\prod_{k\in\partial i\setminus j}\left[\sum_{t_k^{(i)}}a(t_i^{(j)}-t_k^{(i)}-1)\sum_{\tau_k^{(i)}}\mu_{k\to \Psi_i}(T_{ki})\mathbb{I}[\tau_i^{(j)}\leq\tau_k^{(i)}+s_{ki}]\right]\\
+	-&a(t_i^{(j)}-t_j^{(i)}-1)\delta_{x_i^0,S}\mathbb{I}[\tau_i^{(j)}<\theta]\mathbb{I}[\tau_i^{(j)}<\tau_j^{(j)}+s_{ji}]\\
+	 &\qquad\qquad\qquad\times\prod_{k\in\partial i\setminus j}\left[\sum_{t_k^{(i)}}a(t_i^{(j)}-t_k^{(i)}-1)\sum_{\tau_k^{(i)}}\mu_{k\to \Psi_i}(T_{ki})\mathbb{I}[\tau_i^{(j)}<\tau_k^{(i)}+s_{ki}]\right]\\
+	-&\phi(t_i^{(j)})a(t_i^{(j)}-t_j^{(i)})\delta_{x_i^0,I}\delta_{\tau_i^{(j)},0}\prod_{k\in\partial i\setminus j}\left[\sum_{t_k^{(i)}}a(t_i^{(j)}-t_k^{(i)})\sum_{\tau_k^{(i)}}\mu_{k\to \Psi_i}(T_{ki})\right]\\
+	-&\phi(t_i^{(j)})a(t_i^{(j)}-t_j^{(i)})\delta_{x_i^0,S}\mathbb{I}[\tau_i^{(j)}\leq\tau_j^{(j)}+s_{ji}]\prod_{k\in\partial i\setminus j}\left[\sum_{t_k^{(i)}}a(t_i^{(j)}-t_k^{(i)})\sum_{\tau_k^{(i)}}\mu_{k\to \Psi_i}(T_{ki})\mathbb{I}[\tau_i^{(j)}\leq\tau_k^{(i)}+s_{ki}]\right]\\
+	+&\phi(t_i^{(j)})a(t_i^{(j)}-t_j^{(i)})\delta_{x_i^0,S}\mathbb{I}[\tau_i^{(j)}<\theta]\mathbb{I}[\tau_i^{(j)}<\tau_j^{(j)}+s_{ji}]\\
+	&\left.\qquad\qquad\qquad\times\prod_{k\in\partial i\setminus j}\left[\sum_{t_k^{(i)}}a(t_i^{(j)}-t_k^{(i)})\sum_{\tau_k^{(i)}}\mu_{k\to \Psi_i}(T_{ki})\mathbb{I}[\tau_i^{(j)}<\tau_k^{(i)}+s_{ki}]\right]\right)
+\end{aligned}
+\end{align}
+where $T_{ki}=(\tau_k^{(i)},\tau_i^{(k)}=\tau_i^{(j)},t_k^{(i)},t_i^{(k)}=t_i^{(j)})$ due to the constraint on the incoming times. 
+
+\subsection{Summation over the planted times}
+We can see on the above equation that the r.h.s. depends on the planted time $\tau_j^{(i)}$ only through the sign:
+\begin{align}
+\label{eq:def_sigma_ji}
+	\sigma_{ji} = 1+\text{sgn}(\tau_j^{(i)}-\tau_i^{(j)}+s_{ji})\,
+\end{align}
+with the convention that $\text{sgn}(0)=0$.
+We therefore introduce the notation	:
+\begin{align}
+	\tilde{\nu}_{\Psi_i\to j}(\tau_i^{(j)}, \sigma_{ji},t_i^{(j)},t_j^{(i)})=\nu_{\Psi_i\to j}(\tau_i^{(j)},\tau_j^{(i)},t_i^{(j)},t_j^{(i)})
+\end{align}
+for all $\tau_j^{(i)}$ such that $\sigma_{ji} = 1+\text{sgn}(\tau_j^{(i)}-\tau_i^{(j)}+s_{ji})$.
+We also introduce the message:
+\begin{align}
+	\tilde{\mu}_{i\to \Psi_j}(\sigma_{ij},\tau_j^{(i)},t_i^{(j)},t_j^{(i)}) = \sum_{\tau_i^{(j)}}\mu_{i\to \Psi_j}(\tau_i^{(j)},\tau_j^{(i)},t_i^{(j)},t_j^{(i)})\mathbb{I}[\sigma_{ij}=1+\text{sgn}(\tau_i^{(j)}-\tau_j^{(i)}+s_{ij})]
+\end{align}
+With these definitions, the BP equation becomes:
+\begin{align}
+\begin{aligned}
+	\tilde{\nu}_{\Psi_i\to j}(\widetilde{T}_{ij}) &=\gamma(t_i^{(j)})\xi(\tau_i^{(j)},t_i^{(j)},c_i)\left( a(t_i^{(j)}-t_j^{(i)}-1)\delta_{x_i^0,I}\delta_{\tau_i^{(j)},0}\prod_{k\in\partial i\setminus j}\left[\sum_{t_k^{(i)}}a(t_i^{(j)}-t_k^{(i)}-1)\sum_{\sigma_{ki}=0}^2\tilde{\mu}_{k\to \Psi_i}(\widetilde{T}_{ki})\right]\right.\\
+	+&a(t_i^{(j)}-t_j^{(i)}-1)\delta_{x_i^0,S}\mathbb{I}[\sigma_{ji}\in\{1,2\}]\prod_{k\in\partial i\setminus j}\left[\sum_{t_k^{(i)}}a(t_i^{(j)}-t_k^{(i)}-1)\sum_{\sigma_{ki}=1}^2\tilde{\mu}_{k\to \Psi_i}(\widetilde{T}_{ki})\right]\\
+	-&a(t_i^{(j)}-t_j^{(i)}-1)\delta_{x_i^0,S}\mathbb{I}[\tau_i^{(j)}<\theta]\mathbb{I}[\sigma_{ji}=2]\prod_{k\in\partial i\setminus j}\left[\sum_{t_k^{(i)}}a(t_i^{(j)}-t_k^{(i)}-1)\tilde{\mu}_{k\to \Psi_i}(\sigma_{ki}=2,\tau_i^{(j)},t_k^{(i)},t_i^{(j)})\right]\\
+	-&\phi(t_i^{(j)})a(t_i^{(j)}-t_j^{(i)})\delta_{x_i^0,I}\delta_{\tau_i^{(j)},0}\prod_{k\in\partial i\setminus j}\left[\sum_{t_k^{(i)}}a(t_i^{(j)}-t_k^{(i)})\sum_{\sigma_{ki}=0}^2\tilde{\mu}_{k\to \Psi_i}(\widetilde{T}_{ki})\right]\\
+	-&\phi(t_i^{(j)})a(t_i^{(j)}-t_j^{(i)})\delta_{x_i^0,S}\mathbb{I}[\sigma_{ji}\in\{1,2\}]\prod_{k\in\partial i\setminus j}\left[\sum_{t_k^{(i)}}a(t_i^{(j)}-t_k^{(i)})\sum_{\sigma_{ki}=1}^2\tilde{\mu}_{k\to \Psi_i}(\widetilde{T}_{ki})\right]\\
+	+&\left.\phi(t_i^{(j)})a(t_i^{(j)}-t_j^{(i)})\delta_{x_i^0,S}\mathbb{I}[\tau_i^{(j)}<\theta]\mathbb{I}[\sigma_{ji}=2]\prod_{k\in\partial i\setminus j}\left[\sum_{t_k^{(i)}}a(t_i^{(j)}-t_k^{(i)})\tilde{\mu}_{k\to \Psi_i}(\sigma_{ki}=2,\tau_i^{(j)},t_k^{(i)},t_i^{(j)})\right]\right)
+\end{aligned}
+\end{align}
+where $\widetilde{T}_{ij} = (\tau_i^{(j)},\sigma_{ji},t_i^{(j)},t_j^{(i)})$, and $\widetilde{T}_{ki}=(\sigma_{ki}, \tau_i^{(k)}=\tau_i^{(j)}, t_k^{(i)},t_i^{(k)}=t_i^{(j)})$ for all $k\in\partial i \setminus j$.
+In the above equation we have dropped the normalization factor $z_{\Psi_i\to j}$, since the message $\tilde{\nu}_{\Psi_i\to j}$ is not a probability but the value taken by the (normalized) BP message $\nu_{\Psi_i\to j}$ for any $\tau_j^{(i)}$ achieving the equality (\ref{eq:def_sigma_ji}).
+The other BP equation becomes:
+\begin{align}
+\begin{aligned}
+	\tilde{\mu}_{i\to \Psi_j}(\sigma_{ij},\tau_j^{(i)},t_i^{(j)},t_j^{(i)}) &= \sum_{\tau_i^{(j)}=0}^{\theta}\mu_{i\to \Psi_j}(\tau_i^{(j)},\tau_j^{(i)},t_i^{(j)},t_j^{(i)})\mathbb{I}[\sigma_{ij}=1+\text{sgn}(\tau_i^{(j)}-\tau_j^{(i)}+s_{ij})] \\
+	&= \sum_{\tau_i^{(j)}=0}^{\theta}\nu_{\Psi_i\to j}(\tau_i^{(j)},\tau_j^{(i)},t_i^{(j)},t_j^{(i)})\mathbb{I}[\sigma_{ij}=1+\text{sgn}(\tau_i^{(j)}-\tau_j^{(i)}+s_{ij})] \\
+	&= \sum_{\tau_i^{(j)}=0}^{\theta}\tilde{\nu}_{\Psi_i\to j}(\tau_i^{(j)},\sigma_{ji}=1+\text{sgn}(\tau_j^{(i)}-\tau_i^{j}+s_{ji}),t_i^{(j)},t_j^{(i)})\mathbb{I}[\sigma_{ij}=1+\text{sgn}(\tau_i^{(j)}-\tau_j^{(i)}+s_{ij})]
+\end{aligned}
+\end{align}
+which gives:
+\begin{align}
+\begin{aligned}
+\left\{
+\begin{array}{llllll}
+	\tilde{\mu}_{i\to \Psi_j}(0,\tau_j^{(i)},t_i^{(j)},t_j^{(i)})&=\mathbb{I}[\tau_j-s_{ji}>0]\sum_{\tau_i^{(j)}=0}^{\tau_j^{(i)}-s_{ji}}\tilde{\nu}_{\Psi_i\to j}(\tau_i^{(j)},\sigma_{ji}=2,t_i^{(j)},t_j^{(i)}) \\
+	\tilde{\mu}_{i\to \Psi_j}(1,\tau_j^{(i)},t_i^{(j)},t_j^{(i)})&= \mathbb{I}[\tau_j-s_{ji}\geq 0]\tilde{\nu}_{\Psi_i\to j}(\tau_i^{(j)}=\tau_j^{(i)}-s_{ji},\sigma_{ji}=2,t_i^{(j)},t_j^{(i)})\\	
+	\tilde{\mu}_{i\to \Psi_j}(2,\tau_j^{(i)},t_i^{(j)},t_j^{(i)})&= \sum_{\tau_i^{(j)}=\zeta_{ij}^+}^{\theta}\tilde{\nu}_{\Psi_i\to j}(\tau_i^{(j)},\sigma_{ji}=1+\text{sgn}(\tau_j^{(i)}-\tau_i^{j}+s_{ji}),t_i^{(j)},t_j^{(i)})\\
+	&=\sum_{\tau_i^{(j)}=\zeta^+_i}^{\zeta^-_i}\tilde{\nu}_{\Psi_i\to j}(\tau_i^{(j)},\sigma_{ji}=2,t_i^{(j)},t_j^{(i)}) \\
+	&+ \mathbb{I}[\tau_j^{(i)}+s_{ji}\leq \theta]\tilde{\nu}_{\Psi_i\to j}(\tau_i^{(j)}=\tau_j^{(i)}+s_{ji},\sigma_{ji}=1,t_i^{(j)},t_j^{(i)})\\
+	&+ \mathbb{I}[\tau_j^{(i)}+s_{ji}<\theta]\sum_{\tau_i^{(j)}=\tau_j^{(i)}+s_{ji}+1}^\theta \tilde{\nu}_{\Psi_i\to j}(\tau_i^{(j)},\sigma_{ji}=0,t_i^{(j)},t_j^{(i)})
+\end{array}
+\right.
+\end{aligned}
+\end{align}
+where $\zeta^+_i=\max(0,\tau_j^{(i)}-s_{ij}+1)$, and $\zeta^-_i=\min(\theta,\tau_j^{(i)}+s_{ji}-1)$.
+
+\subsection{Summation over the inferred times}
+In order to reduce further the space of variables over which the BP messages are defined, we define the following message:
+\begin{align}
+	\mu'_{i\to\Psi_j}(\sigma_{ij},\tau_j^{(i)},c_{ij},t_j^{(i)})=\sum_{t_i^{(j)}}\tilde{\mu}_{i\to\Psi_j}(\sigma_{ij},\tau_j^{(i)},t_i^{(j)},t_j^{(i)})a(t_j^{(i)}-t_i^{(j)}-c_{ij}) \ ,
+\end{align}
+with $c_{ij}\in\{0,1\}$.
+Using this definition, the first BP equation becomes:
+\begin{align}
+\label{eq:BP_factor_to_variable}
+\begin{aligned}
+	\tilde{\nu}_{\Psi_i\to j}(\widetilde{T}_{ij}) &=\gamma(t_i^{(j)})\xi(\tau_i^{(j)},t_i^{(j)},c_i)\left( a(t_i^{(j)}-t_j^{(i)}-1)\delta_{x_i^0,I}\delta_{\tau_i^{(j)},0}\prod_{k\in\partial i\setminus j}\left[\sum_{\sigma_{ki}=0}^2 \mu'_{k\to \Psi_i}(\sigma_{ki},\tau_i^{(k)},c_{ki}=1,t_i^{(k)})\right]\right.\\
+	+&a(t_i^{(j)}-t_j^{(i)}-1)\delta_{x_i^0,S}\mathbb{I}[\sigma_{ji}\in\{1,2\}]\prod_{k\in\partial i\setminus j}\left[\sum_{\sigma_{ki}=1}^2\mu'_{k\to \Psi_i}(\sigma_{ki},\tau_i^{(k)},c_{ki}=1,t_i^{(k)})\right]\\
+	-&a(t_i^{(j)}-t_j^{(i)}-1)\delta_{x_i^0,S}\mathbb{I}[\tau_i^{(j)}<\theta]\mathbb{I}[\sigma_{ji}=2]\prod_{k\in\partial i\setminus j}\mu'_{k\to \Psi_i}(\sigma_{ki}=2,\tau_i^{(k)},c_{ki}=1,t_i^{(k)})\\
+	-&\phi(t_i^{(j)})a(t_i^{(j)}-t_j^{(i)})\delta_{x_i^0,I}\delta_{\tau_i^{(j)},0}\prod_{k\in\partial i\setminus j}\left[\sum_{\sigma_{ki}=0}^2\mu'_{k\to \Psi_i}(\sigma_{ki},\tau_i^{(k)},c_{ki}=0,t_i^{(k)})\right]\\
+	-&\phi(t_i^{(j)})a(t_i^{(j)}-t_j^{(i)})\delta_{x_i^0,S}\mathbb{I}[\sigma_{ji}\in\{1,2\}]\prod_{k\in\partial i\setminus j}\left[\sum_{\sigma_{ki}=1}^2\mu'_{k\to \Psi_i}(\sigma_{ki},\tau_i^{(k)},c_{ki}=0,t_i^{(k)})\right]\\
+	+&\left.\phi(t_i^{(j)})a(t_i^{(j)}-t_j^{(i)})\delta_{x_i^0,S}\mathbb{I}[\tau_i^{(j)}<\theta]\mathbb{I}[\sigma_{ji}=2]\prod_{k\in\partial i\setminus j}\mu'_{k\to \Psi_i}(\sigma_{ki}=2,\tau_i^{(k)},c_{ki}=0,t_i^{(k)})\right)
+\end{aligned}
+\end{align}
+The second BP equation becomes:
+\begin{align}
+\label{eq:BP_variable_to_factor}
+\left\{
+\begin{array}{llllll}
+	\mu'(0,\tau_j^{(i)},c_{ij},t_j^{(i)})&=\mathbb{I}[\tau_j-s_{ji}>0]\sum_{t_i^{(j)}}a(t_j^{(i)}-t_i^{(i)}-c_{ij})\sum_{\tau_i^{(j)}=0}^{\tau_j^{(i)}-s_{ji}}\tilde{\nu}_{\Psi_i\to j}(\tau_i^{(j)},\sigma_{ji}=2,t_i^{(j)},t_j^{(i)}) \\
+	\mu'(1,\tau_j^{(i)},c_{ij},t_j^{(i)})&= \mathbb{I}[\tau_j-s_{ji}\geq 0]\sum_{t_i^{(j)}}a(t_j^{(i)}-t_i^{(i)}-c_{ij})\tilde{\nu}_{\Psi_i\to j}(\tau_i^{(j)}=\tau_j^{(i)}-s_{ji},\sigma_{ji}=2,t_i^{(j)},t_j^{(i)})\\	
+	\mu'(2,\tau_j^{(i)},c_{ij},t_j^{(i)})&=\sum_{t_i^{(j)}}a(t_j^{(i)}-t_i^{(i)}-c_{ij})\left[\sum_{\tau_i^{(j)}=\zeta^+_i}^{\zeta^-_i}\tilde{\nu}_{\Psi_i\to j}(\tau_i^{(j)},\sigma_{ji}=2,t_i^{(j)},t_j^{(i)})\right. \\
+	&+ \mathbb{I}[\tau_j^{(i)}+s_{ji}\leq \theta]\tilde{\nu}_{\Psi_i\to j}(\tau_i^{(j)}=\tau_j^{(i)}+s_{ji},\sigma_{ji}=1,t_i^{(j)},t_j^{(i)})\\
+	&+\left. \mathbb{I}[\tau_j^{(i)}+s_{ji}<\theta]\sum_{\tau_i^{(j)}=\tau_j^{(i)}+s_{ji}+1}^\theta \tilde{\nu}_{\Psi_i\to j}(\tau_i^{(j)},\sigma_{ji}=0,t_i^{(j)},t_j^{(i)})\right]	
+\end{array}
+\right.
+\end{align}
+
+\subsection{BP marginals}
+Once a fixed-point of the BP equations~(\ref{eq:BP_factor_to_variable},\ref{eq:BP_variable_to_factor}) is found, the BP marginal can be expressed as:
+\begin{align}
+\begin{aligned}
+	p_{ij}(\tau_i^{(j)},_tau_j^{(i)},t_i^{(j)},t_j^{(i)}) = \frac{1}{z_{ij}}&\tilde{\nu}_{\Psi_i\to j}(\tau_i^{(j)},\sigma_{ji}=1+\text{sgn}(\tau_j^{(i)}+s_{ji}-\tau_i^{(j)}),t_i^{(j)},t_j^{(i)}) \\
+	&\times \tilde{\nu}_{\Psi_j\to i}(\tau_j^{(i)},\sigma_{ij}=1+\text{sgn}(\tau_i^{(j)}+s_{ij}-\tau_j^{(i)}),t_j^{(i)},t_i^{(j)})
+\end{aligned}
+\end{align}
+Summing over $\tau_j^{(i)}$, we obtain:
+\begin{align}
+\begin{aligned}
+	p_{ij}(\tau_i^{(j)},t_i^{(j)},t_j^{(i)}) &= \mathbb{I}[\tau_i^{(j)}-s_{ji}>0]\tilde{\nu}_{\Psi_i\to j}(\tau_i^{(j)},\sigma_{ji}=0,t_i^{(j)},t_j^{(i)})\sum_{\tau_j^{(i)}=0}^{\tau_i^{(j)}-s_{ji}-1}\tilde{\nu}_{\Psi_j\to i}(\tau_j^{(i)},\sigma_{ij}=2,t_j^{(i)},t_j^{(i)}) \\
+	+&\mathbb{I}[\tau_i^{(j)}-s_{ji}\geq 0]\tilde{\nu}_{\Psi_i\to j}(\tau_i^{(j)},\sigma_{ji}=1,t_i^{(j)},t_j^{(i)})\tilde{\nu}_{\Psi_j\to i}(\tau_j^{(i)}=\tau_i^{(j)}-s_{ji},\sigma_{ij}=2,t_j^{(i)},t_j^{(i)}) \\
+	+&\tilde{\nu}_{\Psi_i\to j}(\tau_i^{(j)},\sigma_{ji}=2,t_i^{(j)},t_j^{(i)})\sum_{\tau_j^{(i)}=\zeta_j^+}^\theta \tilde{\nu}_{\Psi_j\to i}(\tau_j^{(i)},\sigma_{ij}=1+\text{sgn}(\tau_i^{(j)}-\tau_j^{(i)}+s_{ij}),t_j^{(i)},t_j^{(i)})
+\end{aligned}
+\end{align}
+with $\zeta_j^+=\max(0,\tau_i^{(j)}-s_{ji}+1)$. The last sum can be expressed as:
+\begin{align*}
+\sum_{\tau_j^{(i)}=\zeta_j^+}^\theta \tilde{\nu}_{\Psi_j\to i}(\tau_j^{(i)},\sigma_{ij}=1+\text{sgn}(\tau_i^{(j)}-\tau_j^{(i)}+s_{ij}),t_j^{(i)},t_j^{(i)}) &= \sum_{\tau_j^{(i)}=\zeta_j^+}^{\zeta_j^-} \tilde{\nu}_{\Psi_j\to i}(\tau_j^{(i)},\sigma_{ij}=2,t_j^{(i)},t_j^{(i)}) \\
++&\mathbb{I}[\tau_i^{(j)}+s_{ij}\leq\theta]\tilde{\nu}_{\Psi_j\to i}(\tau_j^{(i)}=\tau_i^{(j)}+s_{ij},\sigma_{ij}=1,t_j^{(i)},t_j^{(i)}) \\
++&\mathbb{I}[\tau_i^{(j)}+s_{ij}<\theta]\sum_{\tau_j^{(i)}=\tau_i^{(j)}+s_{ij}+1}^\theta\tilde{\nu}_{\Psi_j\to i}(\tau_j^{(i)},\sigma_{ij}=0,t_j^{(i)},t_j^{(i)})
+\end{align*}
+Summing over $t_j^{(i)}$, we finally obtain the joint probability $p_i(\tau_i,t_i)$:
+\begin{align}
+\begin{aligned}
+p_i(\tau_i^{(j)},t_i^{(j)}) &= \sum_{t_j^{(i)}=0}^\theta\left[\mathbb{I}[\tau_i^{(j)}-s_{ji}>0]\tilde{\nu}_{\Psi_i\to j}(\tau_i^{(j)},\sigma_{ji}=0,t_i^{(j)},t_j^{(i)})\sum_{\tau_j^{(i)}=0}^{\tau_i^{(j)}-s_{ji}-1}\tilde{\nu}_{\Psi_j\to i}(\tau_j^{(i)},\sigma_{ij}=2,t_j^{(i)},t_j^{(i)})\right. \\
++&\mathbb{I}[\tau_i^{(j)}-s_{ji}\geq 0]\tilde{\nu}_{\Psi_i\to j}(\tau_i^{(j)},\sigma_{ji}=1,t_i^{(j)},t_j^{(i)})\tilde{\nu}_{\Psi_j\to i}(\tau_j^{(i)}=\tau_i^{(j)}-s_{ji},\sigma_{ij}=2,t_j^{(i)},t_j^{(i)}) \\
++&\tilde{\nu}_{\Psi_i\to j}(\tau_i^{(j)},\sigma_{ji}=2,t_i^{(j)},t_j^{(i)})\left(\sum_{\tau_j^{(i)}=\zeta_j^+}^{\zeta_j^-} \tilde{\nu}_{\Psi_j\to i}(\tau_j^{(i)},\sigma_{ij}=2,t_j^{(i)},t_j^{(i)})\right. \\
++&\mathbb{I}[\tau_i^{(j)}+s_{ij}\leq\theta]\tilde{\nu}_{\Psi_j\to i}(\tau_j^{(i)}=\tau_i^{(j)}+s_{ij},\sigma_{ij}=1,t_j^{(i)},t_j^{(i)}) \\
++&\left.\left.\mathbb{I}[\tau_i^{(j)}+s_{ij}<\theta]\sum_{\tau_j^{(i)}=\tau_i^{(j)}+s_{ij}+1}^\theta\tilde{\nu}_{\Psi_j\to i}(\tau_j^{(i)},\sigma_{ij}=0,t_j^{(i)},t_j^{(i)})\right)\right]
+\end{aligned}
+\end{align}
+
+\subsection{Numerical resolution of the Replica-Symmetric Equations}
+We are left with two types of BP messages: $\mu'_{i\to\Psi_j}$ is defined over the variable $((\sigma_{ij},\tau_j^{(i)},c_{ij},t_j^{(i)}))$ living in a space of size $6(\theta+1)^2$, and $\tilde{\nu}_{\Psi_i\to j}$ is defined over the variable $(\tau_i^{(j)},\sigma_{ji},t_i^{(j)},t_j^{(i)})$, living in a space of size $3(\theta+1)^3$.
+
+\end{widetext}
+
 
 
 \bibliography{draft}
