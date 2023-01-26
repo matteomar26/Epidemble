@@ -1,4 +1,4 @@
-using Distributions: Poisson #in order to simulate Poisson degree
+using Distributions
 
 function obs(ti, taui; fr = 0.0, dilution = 0.0)
     if rand() >= dilution
@@ -10,7 +10,7 @@ end
 
 function calculate_ν!(ν,μ,neighbours,xi0,T,γi,a; fr = 0.0, dilution = 0.0)
     if xi0 == 0
-        for τi = 0:T+1
+        for τi = 1:T+1
             for ti = 0:T+1
                 #first we check consistency between
                 # the planted time τi and the inferred 
@@ -74,7 +74,7 @@ function calculate_ν!(ν,μ,neighbours,xi0,T,γi,a; fr = 0.0, dilution = 0.0)
             end
         end
     end
-    if any(isnan.(ν))
+    if any(isnan,ν)
         println("NaN in ν")
         return
     end
@@ -84,6 +84,81 @@ function calculate_ν!(ν,μ,neighbours,xi0,T,γi,a; fr = 0.0, dilution = 0.0)
     end    
     ν ./= sum(ν);    
 end
+
+
+function calculate_belief!(b,μ,neighbours,xi0,T,γi; fr = 0.0, dilution = 0.0)
+    b .= 0
+    if xi0 == 0
+        for τi = 1:T+1
+            for ti = 0:T+1
+                #first we check consistency between
+                # the planted time τi and the inferred 
+                #time ti by checking the observation constraint
+                ξ = obs(ti,τi,fr=fr,dilution=dilution)
+                if ξ == 0.0 #if the observation is NOT satisfied
+                    continue  # ν = 0
+                end
+                #Since they both depend on ti only,
+                # we precaclulate the prior seed probability
+                # of the individual and the value of phi function 
+                # which is 1 if 0<ti<T+1 and 0 if ti=0,T+1
+                seed = (ti==0 ? γi : (1-γi) )
+                phi = (ti==0 || ti==T+1) ? 0 : 1
+                #now we calculate the four products over
+                # μ functions that we need to put in the
+                # expression of ν. We call them m1,..,m4
+                m1, m2, m3, m4 = 1.0, 1.0, 1.0, 1.0
+                # we initialize the m's to one and then we 
+                # loop a product over neighbours
+                for k in neighbours 
+                    m1 *= μ[k,ti,1,τi,1] + μ[k,ti,1,τi,2]
+                    m2 *= μ[k,ti,0,τi,1] + μ[k,ti,0,τi,2]
+                    m3 *= μ[k,ti,1,τi,2]
+                    m4 *= μ[k,ti,0,τi,2]
+                end
+                #Now we have everything to calculate ν
+                    # We use the fact that ν for σ=2 is just ν at σ=1 plus a term
+                b[ti,τi] = ξ  * seed * ( m1 - phi * m2) + ξ * (τi<T+1) * seed * (phi *  m4 -  m3)
+            end
+        end
+    else
+        # We are now in the case in which the individual is 
+        # the zero patient. In this case the computation of 
+        # the ν function is a little bit different than before
+        # so we separated the cases
+
+        for ti = 0:T+1
+            ξ = obs(ti,0,fr=fr,dilution=dilution )
+            if ξ == 0.0  #if the observation is NOT satisfied
+                continue
+            end
+            #we can calculate ν now because it is constant
+            # in σ and is nonzero only if τi=0
+
+            #As before we pre-calculate ti-dependent quantities 
+            seed = (ti==0 ? γi : (1-γi) )
+            phi = (ti==0 || ti==T+1) ? 0 : 1
+            # We perform the product over neighbours
+            m1, m2 = 1.0, 1.0
+            for k in neighbours                
+                m1 *= μ[k,ti,1,0,0] + μ[k,ti,1,0,1] + μ[k,ti,1,0,2]
+                m2 *= μ[k,ti,0,0,0] + μ[k,ti,0,0,1] + μ[k,ti,0,0,2]
+            end
+            #We calculate ν in the zero patient case
+            b[ti,0] = ξ * seed * ( m1 - phi *  m2)
+        end
+    end
+    if any(isnan,b)
+        println("NaN in b")
+        return
+    end
+    if sum(b) == 0
+        println("sum-zero b")
+        return
+    end    
+    b ./= sum(b);
+end
+
 
 
 function update_μ!(μ,ν,Σ,l,sij,sji,T,a,P)
@@ -133,6 +208,9 @@ function update_marginal!(marg,l,ν1,ν2,Σ,sij,sji,T)
     end
     marg[l,:,:] ./= sum(@view marg[l,:,:])
 end
+
+
+
 
 function rand_disorder(γp,λp, dist, paramdist)
     r = 1.0 / log(1-λp)
@@ -209,13 +287,13 @@ function pop_dynamics(N, T, λp, λi, γp, γi, dist, paramdist; tot_iterations 
     # First we extract two ν's and then we combine it in order to obtain a marginal.
     # In order to extract a ν we have to extract d-1 μ's. Therefore we extract two groups of 
     # d-1 μ's and from them we calculate the two ν's. We also have to extract disorder.
-    for l = 1:N
-        xi0,sij,sji,d = rand_disorder(γp,λp, dist, paramdist) #planted disorder
-
-        group1 = rand(1:N,d-1) #groups of neighbours 
-        group2 = rand(1:N,d-1)
-
-        xj0 = (rand() < γp);
+    #=for l = 1:N
+        xi0,sij,sji,di = rand_disorder(γp,λp, dist, paramdist) #planted disorder
+        xj0,sij,sji,dj = rand_disorder(γp,λp, dist, paramdist) #planted disorder
+        
+        group1 = rand(1:N,di-1) #groups of neighbours 
+        group2 = rand(1:N,dj-1)
+        #@show group1, group2
 
         ν1 = fill(0.0, 0:T+1, 0:T+1, 0:T+1, 0:2)
         ν2 = fill(0.0, 0:T+1, 0:T+1, 0:T+1, 0:2)
@@ -226,6 +304,14 @@ function pop_dynamics(N, T, λp, λi, γp, γi, dist, paramdist; tot_iterations 
         #Once the ν are calculated we have to cumulate with respect the third argument
         Σ = cumsum(ν2,dims=3)
         update_marginal!(marg,l,ν1,ν2,Σ,sij,sji,T)
+    end
+    return marg=#
+    for l = 1:N
+        xi0 = (rand() < γp);
+        d = rand(Poisson(paramdist))
+        #d = paramdist
+        neighbours = rand(1:N,d)
+        calculate_belief!(view(marg,l,:,:),μ,neighbours,xi0,T,γi; fr, dilution) 
     end
     return marg
 end
