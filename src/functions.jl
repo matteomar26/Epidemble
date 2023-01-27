@@ -209,25 +209,16 @@ function update_marginal!(marg,l,ν1,ν2,Σ,sij,sji,T)
     marg[l,:,:] ./= sum(@view marg[l,:,:])
 end
 
+residual(d::Poisson) = d #residual degree of poiss distribution is poisson with same param
+residual(d::Dirac) = Dirac(d.value - 1) #residual degree of rr distribution (delta) is a delta at previous vale
 
-
-
-function rand_disorder(γp,λp, dist, paramdist)
+function rand_disorder(γp, λp, dist)
     r = 1.0 / log(1-λp)
     sij = floor(Int,log(rand())*r) + 1
     sji = floor(Int,log(rand())*r) + 1
     xi0 = (rand() < γp);
-
-    @assert (dist in ["poisson","regular","ft"]) "dist should be poisson, regular or ft (fat-tailed)"
-    # d is the TOTAL (i.e. residual + 1) degree. 
-    if dist == "poisson"
-        d = rand(Poisson(paramdist)) + 1
-    elseif dist == "regular"
-        d = paramdist
-    elseif dist == "ft"
-        d = ft3(paramdist) + 1
-    end
-    return xi0,sij,sji, d
+    d = rand(dist)
+    return xi0, sij, sji, d
 end
 
 function ft3(d::Int)
@@ -240,10 +231,13 @@ function ft3(d::Int)
     return Inf
 end
 
-function pop_dynamics(N, T, λp, λi, γp, γi, dist, paramdist; tot_iterations = 5, fr = 0.0, dilution = 0.0)
+
+
+function pop_dynamics(N, T, λp, λi, γp, γi, degree_dist; tot_iterations = 5, fr = 0.0, dilution = 0.0)
     μ = fill(1.0 / (6*(T+2)^2), 1:N, 0:T+1, 0:1, 0:T+1, 0:2)
     Paux = fill(0.0, 0:1, 0:2)
-
+    res_dist = residual(degree_dist) #we calculate the distribution of the residual degree
+    
     #Precalculation of the function a := (1-λ)^{tθ(t)}, 
     #useful for later (the function a appears
     #  in the inferred time factor node)
@@ -257,12 +251,12 @@ function pop_dynamics(N, T, λp, λi, γp, γi, dist, paramdist; tot_iterations 
         for l = 1:N
             # Extraction of disorder: state of individual i: xi0, delays: sij and sji
 
-            xi0,sij,sji,d = rand_disorder(γp,λp, dist, paramdist)
+            xi0,sij,sji,d = rand_disorder(γp,λp,res_dist)
 
             # Initialization of ν=0
             ν .= 0.0
             #Extraction of d-1 μ's from population
-            neighbours = rand(1:N,d-1)
+            neighbours = rand(1:N,d)
 
             #Beginning of calculations: we start by calculating the ν: 
             calculate_ν!(ν,μ,neighbours,xi0,T,γi,a,fr=fr,dilution=dilution)
@@ -282,34 +276,9 @@ function pop_dynamics(N, T, λp, λi, γp, γi, dist, paramdist; tot_iterations 
     p = fill(0.0, 0:T+1, 0:T+1, 0:T+1)
     marg = fill(0.0, 1:N, 0:T+1, 0:T+1)
 
-
     # Now we take out converged population of μ and use it to extract marginals.
-    # First we extract two ν's and then we combine it in order to obtain a marginal.
-    # In order to extract a ν we have to extract d-1 μ's. Therefore we extract two groups of 
-    # d-1 μ's and from them we calculate the two ν's. We also have to extract disorder.
-    #=for l = 1:N
-        xi0,sij,sji,di = rand_disorder(γp,λp, dist, paramdist) #planted disorder
-        xj0,sij,sji,dj = rand_disorder(γp,λp, dist, paramdist) #planted disorder
-        
-        group1 = rand(1:N,di-1) #groups of neighbours 
-        group2 = rand(1:N,dj-1)
-        #@show group1, group2
-
-        ν1 = fill(0.0, 0:T+1, 0:T+1, 0:T+1, 0:2)
-        ν2 = fill(0.0, 0:T+1, 0:T+1, 0:T+1, 0:2)
-
-        calculate_ν!(ν1,μ,group1,xi0,T,γi,a,fr=fr,dilution=dilution)
-        calculate_ν!(ν2,μ,group2,xj0,T,γi,a,fr=fr,dilution=dilution)
-
-        #Once the ν are calculated we have to cumulate with respect the third argument
-        Σ = cumsum(ν2,dims=3)
-        update_marginal!(marg,l,ν1,ν2,Σ,sij,sji,T)
-    end
-    return marg=#
     for l = 1:N
-        xi0 = (rand() < γp);
-        d = rand(Poisson(paramdist))
-        #d = paramdist
+        xi0,sij,sji,d = rand_disorder(γp,λp,degree_dist)
         neighbours = rand(1:N,d)
         calculate_belief!(view(marg,l,:,:),μ,neighbours,xi0,T,γi; fr, dilution) 
     end
