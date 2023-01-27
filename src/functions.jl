@@ -211,6 +211,7 @@ end
 
 residual(d::Poisson) = d #residual degree of poiss distribution is poisson with same param
 residual(d::Dirac) = Dirac(d.value - 1) #residual degree of rr distribution (delta) is a delta at previous vale
+residual(d::DiscreteNonParametric) = DiscreteNonParametric(support(d) .- 1, (probs(d) .* support(d)) / sum(probs(d) .* support(d)))
 
 function rand_disorder(γp, λp, dist)
     r = 1.0 / log(1-λp)
@@ -241,9 +242,6 @@ function pop_dynamics(N, T, λp, λi, γp, γi, degree_dist; tot_iterations = 5,
     #Precalculation of the function a := (1-λ)^{tθ(t)}, 
     #useful for later (the function a appears
     #  in the inferred time factor node)
-
-    #pcache = [(1-λi)^t for t = 1:T+1]
-    #a(t) = t <= 0 ? 1.0 : pcache[t]
     a = Dict{Int,Float64}(zip(-T-2:T+1,[ t<=0 ? 1.0 : (1-λi)^t for t = -T-2:T+1]));
     
     ν = fill(0.0, 0:T+1, 0:T+1, 0:T+1, 0:2)
