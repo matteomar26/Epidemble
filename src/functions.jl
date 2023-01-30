@@ -1,21 +1,29 @@
 using Distributions
 
-function obs(ti, taui; fr = 0.0, dilution = 0.0)
+#=function obs(ti, taui; fr = 0.0, dilution = 0.0)
     if rand() >= dilution
+        return (((ti <= T) == (taui<=T)) ? 1.0 - fr : fr)
+    else
+        return 1.0
+    end
+end=#
+
+function obs(ti, taui, oi; fr = 0.0)
+    if oi == 1
         return (((ti <= T) == (taui<=T)) ? 1.0 - fr : fr)
     else
         return 1.0
     end
 end
 
-function calculate_ν!(ν,μ,neighbours,xi0,T,γi,a; fr = 0.0, dilution = 0.0)
+function calculate_ν!(ν,μ,neighbours,xi0,T,γi,a,oi; fr = 0.0)
     if xi0 == 0
         for τi = 1:T+1
             for ti = 0:T+1
                 #first we check consistency between
                 # the planted time τi and the inferred 
                 #time ti by checking the observation constraint
-                ξ = obs(ti,τi,fr=fr,dilution=dilution)
+                ξ = obs(ti,τi,oi,fr=fr)
                 if ξ == 0.0 #if the observation is NOT satisfied
                     continue  # ν = 0
                 end
@@ -53,7 +61,7 @@ function calculate_ν!(ν,μ,neighbours,xi0,T,γi,a; fr = 0.0, dilution = 0.0)
 
         for tj = 0:T+1
             for ti = 0:T+1
-                ξ = obs(ti,0,fr=fr,dilution=dilution )
+                ξ = obs(ti,0,oi,fr=fr)
                 if ξ == 0.0  #if the observation is NOT satisfied
                     continue
                 end
@@ -86,7 +94,7 @@ function calculate_ν!(ν,μ,neighbours,xi0,T,γi,a; fr = 0.0, dilution = 0.0)
 end
 
 
-function calculate_belief!(b,μ,neighbours,xi0,T,γi; fr = 0.0, dilution = 0.0)
+function calculate_belief!(b,μ,neighbours,xi0,T,γi,oi; fr = 0.0)
     b .= 0
     if xi0 == 0
         for τi = 1:T+1
@@ -94,7 +102,7 @@ function calculate_belief!(b,μ,neighbours,xi0,T,γi; fr = 0.0, dilution = 0.0)
                 #first we check consistency between
                 # the planted time τi and the inferred 
                 #time ti by checking the observation constraint
-                ξ = obs(ti,τi,fr=fr,dilution=dilution)
+                ξ = obs(ti,τi,oi,fr=fr)
                 if ξ == 0.0 #if the observation is NOT satisfied
                     continue  # ν = 0
                 end
@@ -128,7 +136,7 @@ function calculate_belief!(b,μ,neighbours,xi0,T,γi; fr = 0.0, dilution = 0.0)
         # so we separated the cases
 
         for ti = 0:T+1
-            ξ = obs(ti,0,fr=fr,dilution=dilution )
+            ξ = obs(ti,0,oi,fr=fr)
             if ξ == 0.0  #if the observation is NOT satisfied
                 continue
             end
@@ -222,16 +230,6 @@ function rand_disorder(γp, λp, dist)
     return xi0, sij, sji, d
 end
 
-function ft3(d::Int)
-    r = 1.202057 * rand()
-    c = 0
-    for t = 1:1000000
-        c += 1/t^3
-        (c > r) && (return (t + d - 1 ))
-    end
-    return Inf
-end
-
 
 
 function pop_dynamics(N, T, λp, λi, γp, γi, degree_dist; tot_iterations = 5, fr = 0.0, dilution = 0.0)
@@ -255,9 +253,9 @@ function pop_dynamics(N, T, λp, λi, γp, γi, degree_dist; tot_iterations = 5,
             ν .= 0.0
             #Extraction of d-1 μ's from population
             neighbours = rand(1:N,d)
-
+            oi = rand() > dilution # oi = 1 if the particle is observed, oi = 0 if the particle is not observed 
             #Beginning of calculations: we start by calculating the ν: 
-            calculate_ν!(ν,μ,neighbours,xi0,T,γi,a,fr=fr,dilution=dilution)
+            calculate_ν!(ν,μ,neighbours,xi0,T,γi,a,oi,fr=fr)
 
             # Now we use the ν vector just calculated to extract the new μ.
             # We overwrite the μ in postition μ[l,:,:,:,:]
@@ -278,7 +276,8 @@ function pop_dynamics(N, T, λp, λi, γp, γi, degree_dist; tot_iterations = 5,
     for l = 1:N
         xi0,sij,sji,d = rand_disorder(γp,λp,degree_dist)
         neighbours = rand(1:N,d)
-        calculate_belief!(view(marg,l,:,:),μ,neighbours,xi0,T,γi; fr, dilution) 
+        oi = rand() > dilution # oi = 1 if the particle is observed, oi = 0 if the particle is not observed 
+        calculate_belief!(view(marg,l,:,:),μ,neighbours,xi0,T,γi,oi; fr) 
     end
     return marg
 end
