@@ -85,5 +85,10 @@ end
 
 function makeGraph(Ngraph,degree_dist::DiscreteNonParametric)
     k = rand(degree_dist,Ngraph)
+    tot_edges = sum(k)
+    while isodd(tot_edges)
+        k = rand(degree_dist,Ngraph)
+        tot_edges = sum(k)
+    end
     return random_configuration_model(Ngraph,k) |> IndexedBiDiGraph 
 end
