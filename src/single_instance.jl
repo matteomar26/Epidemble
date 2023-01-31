@@ -74,3 +74,16 @@ function sample!(x, G, λi, γi)
     end
     x
 end
+
+function makeGraph(Ngraph,degree_dist::Poisson)
+    return erdos_renyi(Ngraph, degree_dist.λ / Ngraph) |> IndexedBiDiGraph
+end
+
+function makeGraph(Ngraph,degree_dist::Dirac)
+    return random_regular_graph(Ngraph,degree_dist.value) |> IndexedBiDiGraph 
+end
+
+function makeGraph(Ngraph,degree_dist::DiscreteNonParametric)
+    k = rand(degree_dist,Ngraph)
+    return random_configuration_model(Ngraph,k) |> IndexedBiDiGraph 
+end
