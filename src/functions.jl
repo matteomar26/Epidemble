@@ -330,3 +330,16 @@ function avgAUC(marg)
     AUC ./= count
     return [AUC[t] for t = 0:T]
 end
+
+function makeDistrib(degreetype,d)
+    if degreetype == "poisson"
+        return Poisson(d)
+    elseif degreetype == "regular"
+        return Dirac(d)
+    else degreetype == "ft4"
+        min_d, max_d = 3, 150
+        d_supp = collect(min_d:max_d)
+        d_prob = 1 ./ ((d_supp) .^ 4)
+        return degree_dist = DiscreteNonParametric(d_supp, d_prob ./ sum(d_prob))
+    end
+end
