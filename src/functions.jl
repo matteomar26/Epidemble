@@ -332,7 +332,7 @@ end
 
 function avgOverlap(marg)
     N = size(marg,1)
-    T = size(marg2D,1) - 2
+    T = size(marg,2) - 2
     overlap = OffsetArrays.OffsetArray(zeros(T+1),-1)
     for t = 0 : T 
         for l = 1 : N
