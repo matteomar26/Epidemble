@@ -292,13 +292,60 @@ function PhaseDiagram(γvalues, λvalues, N, T, dist, paramdist; tot_iterations=
         marg = pop_dynamics(N, T, λp, λi, γp, γi, dist, paramdist, tot_iterations = tot_iterations, fr=fr, dilution=dilution)
         marg2D = reshape((sum(marg,dims=1)./ N),T+2,T+2);
         # we sum over the trace of the 2D marginal to find the probability to infere correctly
-        inf_out[γcount,λcount,1] = sum([marg2D[t,t] for t=1:T+2])
+        inf_out[γcount,λcount,1] = diag(marg2D)
         inf_out[γcount,λcount,2:end] .= avgAUC(marg)
         ProgressMeter.next!(pr)
     end
     return inf_out
 end
 
+
+function diag(marg2D)
+    T = size(marg2D,1) - 2
+    sum([marg2D[t,t] for t=1:T+2])
+end
+
+function L1(marg2D) 
+    T = size(marg2D,1) - 2
+    [sum(marg2D[1:t,1:t]) + sum(marg2D[t+1:end,t+1:end]) for t=1:T+1]
+end
+
+
+function MSE(marg)
+    N = size(marg,1)
+    T = size(marg2D,1) - 2
+    sq_err = OffsetArrays.OffsetArray(zeros(T+1),-1)
+    for t = 0 : T 
+        for l = 1 : N
+            for τi = 0 : T
+                (sum(marg[l, :, τi]) == 0) && continue
+                xi_pt = (τi <= t)
+                pi_inf = sum(marg[l,0:t,τi]) - xi_pt
+                sq_err[t] += (pi_inf - xi_pt) ^ 2 
+            end
+        end
+    end
+    sq_err ./= N
+end
+
+
+
+function avgOverlap(marg)
+    N = size(marg,1)
+    T = size(marg2D,1) - 2
+    overlap = OffsetArrays.OffsetArray(zeros(T+1),-1)
+    for t = 0 : T 
+        for l = 1 : N
+            for τi = 0 : T
+                (sum(marg[l, :, τi]) == 0) && continue
+                xi_pt = (τi <= t)
+                xi_inf = sum(marg[l,0:t,τi]) > sum(marg[l,t+1:end,τi]) ? 1 : 0
+                overlap[t] += (xi_pt == xi_inf)
+            end
+        end
+    end
+    overlap ./= N
+end
 
 function avgAUC(marg)
     N = size(marg,1)
