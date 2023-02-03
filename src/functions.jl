@@ -310,22 +310,47 @@ function L1(marg2D)
     [sum(marg2D[1:t,1:t]) + sum(marg2D[t+1:end,t+1:end]) for t=1:T+1]
 end
 
+function L1(marg2D) 
+    T = size(marg2D,1) - 2
+    [sum(marg2D[1:t,1:t]) + sum(marg2D[t+1:end,t+1:end]) for t=1:T+1]
+end
+
+
+function L1bis(marg)
+    N = size(marg,1)
+    T = size(marg,2) - 2
+    p_agree = OffsetArrays.OffsetArray(zeros(T+1),-1)
+    for t = 0 : T 
+        for l = 1 : N
+            for τi = 0 : T + 1
+                (sum(marg[l, :, τi]) == 0) && continue
+                pi_inf = sum(marg[l,0:t,τi]) 
+                p_agree[t] += (τi <= t ? pi_inf : 1 - pi_inf) #is the planted infected? if so take the prob of being infected 
+            end
+        end
+    end
+    p_agree ./= N
+    return [p_agree[t] for t = 0:T]
+end
+
+
 
 function MSE(marg)
     N = size(marg,1)
-    T = size(marg2D,1) - 2
+    T = size(marg,2) - 2
     sq_err = OffsetArrays.OffsetArray(zeros(T+1),-1)
     for t = 0 : T 
         for l = 1 : N
-            for τi = 0 : T
+            for τi = 0 : T + 1 
                 (sum(marg[l, :, τi]) == 0) && continue
                 xi_pt = (τi <= t)
-                pi_inf = sum(marg[l,0:t,τi]) - xi_pt
+                pi_inf = sum(marg[l,0:t,τi]) 
                 sq_err[t] += (pi_inf - xi_pt) ^ 2 
             end
         end
     end
     sq_err ./= N
+    return [sq_err[t] for t = 0:T]
 end
 
 
@@ -336,15 +361,16 @@ function avgOverlap(marg)
     overlap = OffsetArrays.OffsetArray(zeros(T+1),-1)
     for t = 0 : T 
         for l = 1 : N
-            for τi = 0 : T
+            for τi = 0 : T + 1
                 (sum(marg[l, :, τi]) == 0) && continue
                 xi_pt = (τi <= t)
-                xi_inf = sum(marg[l,0:t,τi]) > sum(marg[l,t+1:end,τi]) ? 1 : 0
+                xi_inf = sum(marg[l,0:t,τi]) > 0.5
                 overlap[t] += (xi_pt == xi_inf)
             end
         end
     end
     overlap ./= N
+    return [overlap[t] for t = 0:T]
 end
 
 function avgAUC(marg)
@@ -355,7 +381,7 @@ function avgAUC(marg)
     for l = 1 :  N 
         for m = l + 1 : min(N,l+400)
             result = 0
-            for τi = 0 : T
+            for τi = 0 : T 
                 (sum(marg[l, :, τi]) == 0 ) && continue
                 for τj = τi + 1 : T + 1
                     (sum(marg[m, :, τj]) == 0) && continue
