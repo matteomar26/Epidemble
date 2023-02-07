@@ -98,10 +98,10 @@ function avgAUC(marg)
 end
 
 function avg_ninf(marg2D)
-    return sum(sum(marg2D,dims=2)'[1:end-1])  #number of infected
+    return sum(sum(marg2D,dims=2)'[1:end-1])  #number of infected expected by the inference scheme.
 end
 
-function save_values!(inf_array,marg,marg2D)
+function save_values!(inf_out,marg,marg2D)
     inf_out[1] = avg_ninf(marg2D) #number of infected
     inf_out[2:T+2] .= avgAUC(marg)
     inf_out[T+3 : 2*T + 3] .= avgOverlap(marg)
@@ -119,7 +119,7 @@ function inf_vs_dil_mism(γ, λRange, λp, N, T, degreetype, d, fr , dilRange ; 
         γi = γp = γ
         marg = pop_dynamics(N, T, λp, λi, γp, γi, degree_dist, tot_iterations = tot_iterations, fr=fr, dilution=dilution)
         marg2D = reshape((sum(marg,dims=1)./ N),T+2,T+2);
-        save_values!(@view inf_out[λcount,dilcount,:], marg, marg2D)
+        save_values!(@view(inf_out[λcount,dilcount,:]), marg, marg2D)
     end
     return inf_out
 end
@@ -135,7 +135,7 @@ function inf_vs_dil_optimal(γ, λRange, N, T, degreetype, d, fr , dilRange ; to
         γi = γp = γ
         marg = pop_dynamics(N, T, λp, λi, γp, γi, degree_dist, tot_iterations = tot_iterations, fr=fr, dilution=dilution)
         marg2D = reshape((sum(marg,dims=1)./ N),T+2,T+2);
-        save_values!(@view inf_out[λcount,dilcount,:],marg,marg2D)
+        save_values!(@view(inf_out[λcount,dilcount,:]),marg,marg2D)
     end
     return inf_out
 end
