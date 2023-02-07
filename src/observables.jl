@@ -135,7 +135,7 @@ function inf_vs_dil_optimal(γ, λRange, N, T, degreetype, d, fr , dilRange ; to
         γi = γp = γ
         marg = pop_dynamics(N, T, λp, λi, γp, γi, degree_dist, tot_iterations = tot_iterations, fr=fr, dilution=dilution)
         marg2D = reshape((sum(marg,dims=1)./ N),T+2,T+2);
-        save_values!(inf_out[λcount,dilcount,:],marg,marg2D)
+        save_values!(@view inf_out[λcount,dilcount,:],marg,marg2D)
     end
     return inf_out
 end
