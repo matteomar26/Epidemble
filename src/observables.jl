@@ -9,7 +9,7 @@ function L1(marg2D)
 end
 
 
-#=function L1bis(marg)
+#=function L1bis(marg)  #old function used to debug the measures L1, MSE, Overlap
     N = size(marg,1)
     T = size(marg,2) - 2
     p_agree = OffsetArrays.OffsetArray(zeros(T+1),-1)
@@ -97,47 +97,41 @@ function avgAUC(marg)
     return [AUC[t] for t = 0:T]
 end
 
+function save_values!(inf_array,marg,marg2D)
+    inf_out[1] = sum(sum(marg2D,dims=2)'[1:end-1])  #number of infected
+    inf_out[2:T+2] .= avgAUC(marg)
+    inf_out[T+3 : 2*T + 3] .= avgOverlap(marg)
+    inf_out[2*T + 4 : 3*T + 4] .= L1(marg2D)
+    inf_out[3*T + 5 : 4*T + 5] .= MSE(marg)
+end
+
 
 function inf_vs_dil_mism(γ, λRange, λp, N, T, degreetype, d, fr , dilRange ; tot_iterations = 1 )
-    inf_out = zeros(length(λRange),length(dilRange), 4*T + 5) # 1 value for pdiag and 4(T+1) values for the AUC,overlap,L1,MSE
+    inf_out = zeros(length(λRange),length(dilRange), 4*T + 5) # 1 value for n_inf and 4(T+1) values for the AUC,overlap,L1,MSE
     degree_dist = makeDistrib(degreetype, d)
     Threads.@threads for (λcount,dilcount) in collect(product(1:length(λRange),1:length(dilRange)))
         λi = λRange[λcount]
-        γi = γp = γ
-       # @show λi λp
         dilution = dilRange[dilcount]
+        γi = γp = γ
         marg = pop_dynamics(N, T, λp, λi, γp, γi, degree_dist, tot_iterations = tot_iterations, fr=fr, dilution=dilution)
         marg2D = reshape((sum(marg,dims=1)./ N),T+2,T+2);
-        # we sum over the trace of the 2D marginal to find the probability to infere correctly
-        inf_out[λcount,dilcount,1] = sum([marg2D[t,t] for t=1:T+2])
-        inf_out[λcount,dilcount,2:T+2] .= avgAUC(marg)
-        inf_out[λcount,dilcount, T+3 : 2*T + 3] .= avgOverlap(marg)
-        inf_out[λcount,dilcount, 2*T + 4 : 3*T + 4] .= L1(marg2D)
-        inf_out[λcount,dilcount, 3*T + 5 : 4*T + 5] .= MSE(marg)
-        #ProgressMeter.next!(pr)
+        save_values!(inf_out[λcount,dilcount,:],marg,marg2D)
     end
     return inf_out
 end
 
 
 
-function inf_vs_dil(γ, λRange, N, T, degreetype, d, fr , dilRange ; tot_iterations = 1 )
-    inf_out = zeros(length(λRange),length(dilRange), 4*T + 5) # 1 value for pdiag and 4(T+1) values for the AUC,overlap,L1,MSE
+function inf_vs_dil_optimal(γ, λRange, N, T, degreetype, d, fr , dilRange ; tot_iterations = 1 )
+    inf_out = zeros(length(λRange),length(dilRange), 4*T + 5) # 1 value for n_inf and 4(T+1) values for the AUC,overlap,L1,MSE
     degree_dist = makeDistrib(degreetype, d)
     Threads.@threads for (λcount,dilcount) in collect(product(1:length(λRange),1:length(dilRange)))
         λi = λp = λRange[λcount]
-        γi = γp = γ
-       # @show λi λp
         dilution = dilRange[dilcount]
+        γi = γp = γ
         marg = pop_dynamics(N, T, λp, λi, γp, γi, degree_dist, tot_iterations = tot_iterations, fr=fr, dilution=dilution)
         marg2D = reshape((sum(marg,dims=1)./ N),T+2,T+2);
-        # we sum over the trace of the 2D marginal to find the probability to infere correctly
-        inf_out[λcount,dilcount,1] = sum([marg2D[t,t] for t=1:T+2])
-        inf_out[λcount,dilcount,2:T+2] .= avgAUC(marg)
-        inf_out[λcount,dilcount, T+3 : 2*T + 3] .= avgOverlap(marg)
-        inf_out[λcount,dilcount, 2*T + 4 : 3*T + 4] .= L1(marg2D)
-        inf_out[λcount,dilcount, 3*T + 5 : 4*T + 5] .= MSE(marg)
-        #ProgressMeter.next!(pr)
+        save_values!(inf_out[λcount,dilcount,:],marg,marg2D)
     end
     return inf_out
 end
