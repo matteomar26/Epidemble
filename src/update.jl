@@ -16,6 +16,8 @@ struct Model{D,M,M2,O}
     a::O
 end
 
+popsize(M::Model) = length(M.τbelief)
+
 function Model(; N, T, γp, λp, γi=γp, λi=λp, fr=0.0, dilution=0.0, distribution) 
     μ = fill(1.0 / 2(T+2), 0:T+1, 0:1, 1:N)
     τμ = fill(T+1, N)
@@ -31,11 +33,11 @@ function update!(M::Model, i)
     @unpack fr, γi, T, a, μ, belief, τμ, τbelief = M
     xi0,∂i,S,oi = rand_disorder(M)
     τi = (1-xi0) * minimum(τ+s for (τ,s) in zip(view(M.τμ,∂i), S); init=T+1)
-    ∂out = rand(1:size(μ,1), length(∂i))
+    ∂out = rand(1:popsize(M), length(∂i))
     τbelief[i] = τi
-    μ1,μ0 = μ[:,1,∂i], μ[:,0,∂i]
+    μ1, μ0 = μ[:,1,∂i], μ[:,0,∂i]
+    μ[:, :, ∂out] .= 0
     for ti = 0:T+1
-        μ[ti, :, ∂out] .= 0
         ξ = obs(M, ti, τi, oi)
         ξ == 0.0 && continue
         seed = ti == 0 ? γi : 1-γi
@@ -46,7 +48,6 @@ function update!(M::Model, i)
             for tj in 0:T+1                
                 ν = ξ * seed * (a[ti-tj-1] * m1 - phi * a[ti-tj] * m0)
                 #ν = ξ * ((ti == 0 ? 1.0 : 1-γ) * a[ti-tj-1] * m1 - (1-γ) * a[ti-tj] * m0)
-                @assert !isnan(ν)
                 μ[tj, 1, j] += ν * a[tj - ti - 1]
                 μ[tj, 0, j] += ν * a[tj - ti]
             end
@@ -77,14 +78,14 @@ function rand_disorder(M::Model)
     d = rand(M.distribution)
     S = [delay(r) for _ = 1:d]
     oi = rand() > M.dilution
-    ∂i = rand(1:size(M.μ,1), d)
+    ∂i = rand(1:popsize(M), d)
     return xi0, ∂i, S, oi
 end
 
 
 
 function pop_dynamics!(M::Model; iterations = 100)
-    N = size(M.μ,1)
+    N = popsize(M)
     for _ = 1:iterations
         for i = 1:N
             update!(M,i)
