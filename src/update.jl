@@ -39,13 +39,13 @@ end
 function update!(M::Model, i)
     @unpack fr, γi, T, Λ, μ, belief, τμ, τbelief = M
     xi0,∂in,S,oi = rand_disorder(M)
-    τout, τi = cavity(τμ[∂in] .+ S, min, xi0 ? 0 : T+1)
+    τout, τi = @views cavity(τμ[∂in], min, xi0 ? 0 : T+1)
     τbelief[i] = τi
     ∂out = rand(1:popsize(M), length(∂in))
     μ1, μ0 = μ[:,1,∂in], μ[:,0,∂in]
     μ[:, :, ∂out] .= 0
     belief[:, i] .= 0
-    τμ[∂out] .= τout
+    τμ[∂out] .= τout .+ S
     M1,M0 = zeros(length(∂in)), zeros(length(∂in))
     for ti = 0:T+1
         ξ = obs(M, ti, τi, oi)
@@ -56,8 +56,6 @@ function update!(M::Model, i)
         m0full = cavity!(M0, (@view μ0[ti, :]), *, 1.0)
         for (j, m1, m0) in zip(∂out, M1, M0)
             for tj in 0:T+1
-                # νij[ti,tj]
-                #@assert m1 == m0 == 1
                 ν = ξ * pseed * (Λ[ti - tj - 1] * m1 - phi * Λ[ti - tj] * m0)
                 #ν = ξ * ((ti == 0 ? 1.0 : (1 - γi)) * Λ[ti - tj - 1] * m1 - (1 - γi) * Λ[ti - tj] * m0)
                 μ[tj, 1, j] += ν * Λ[tj - ti - 1]
@@ -90,23 +88,15 @@ end
 
 
 
-function pop_dynamics!(M::Model; iterations = 100)
+function pop_dynamics!(M::Model; iterations = 100, callback = (x...)->nothing)
     N = popsize(M)
-    for _ = 1:iterations
+    for it = 1:iterations
         for i = 1:N
             update!(M,i)
         end
+        callback(it, M)
     end
 end
 
 
-function makeDistrib(degreetype,d)
-    if degreetype == "poisson"
-        return Poisson(d)
-    elseif degreetype == "regular"
-        return Dirac(d)
-    else degreetype == "ft4"
-        d_supp = 3:150
-        return DiscreteNonParametric(d_supp, normalize!(1 ./ d_supp .^ 4))
-    end
-end
+FatTail(support,k) = DiscreteNonParametric(support, normalize!(1 ./ support .^ k))
