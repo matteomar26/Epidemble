@@ -1,0 +1,146 @@
+#LyX 2.3 created this file. For more info see http://www.lyx.org/
+\lyxformat 544
+\begin_document
+\begin_header
+\save_transient_properties true
+\origin unavailable
+\textclass article
+\use_default_options true
+\maintain_unincluded_children false
+\language english
+\language_package default
+\inputencoding auto
+\fontencoding global
+\font_roman "default" "default"
+\font_sans "default" "default"
+\font_typewriter "default" "default"
+\font_math "auto" "auto"
+\font_default_family default
+\use_non_tex_fonts false
+\font_sc false
+\font_osf false
+\font_sf_scale 100 100
+\font_tt_scale 100 100
+\use_microtype false
+\use_dash_ligatures true
+\graphics default
+\default_output_format default
+\output_sync 0
+\bibtex_command default
+\index_command default
+\paperfontsize default
+\use_hyperref false
+\papersize default
+\use_geometry false
+\use_package amsmath 1
+\use_package amssymb 1
+\use_package cancel 1
+\use_package esint 1
+\use_package mathdots 1
+\use_package mathtools 1
+\use_package mhchem 1
+\use_package stackrel 1
+\use_package stmaryrd 1
+\use_package undertilde 1
+\cite_engine basic
+\cite_engine_type default
+\use_bibtopic false
+\use_indices false
+\paperorientation portrait
+\suppress_date false
+\justification true
+\use_refstyle 1
+\use_minted 0
+\index Index
+\shortcut idx
+\color #008000
+\end_index
+\secnumdepth 3
+\tocdepth 3
+\paragraph_separation indent
+\paragraph_indentation default
+\is_math_indent 0
+\math_numbering_side default
+\quotes_style english
+\dynamic_quotes 0
+\papercolumns 1
+\papersides 1
+\paperpagestyle default
+\tracking_changes false
+\output_changes false
+\html_math_output 0
+\html_css_as_file 0
+\html_be_strict false
+\end_header
+
+\begin_body
+
+\begin_layout Standard
+with 
+\begin_inset Formula $t_{i^{*}}=0,p\left(s_{i^{*}}\right)=\gamma\delta_{s_{i^{*}},0}+\left(1-\gamma\right)\delta_{s_{i^{*}},T+1}$
+\end_inset
+
+,
+\begin_inset Formula $\Lambda\left(t\right)=\left(1-\lambda\right)^{\max\left(t,0\right)}$
+\end_inset
+
+,
+\begin_inset Formula 
+\begin{align*}
+\nu_{ij}\left(t_{i},t_{j}\right) & \propto\sum_{\left\{ t_{k}\right\} _{k\in\partial i\setminus j}}\sum_{\left\{ s_{k}\right\} _{k\in\partial^{*}i}}\delta\left(t_{i},\min_{k\in\partial^{*}i}t_{k}+s_{k}\right)\prod_{k\in\partial^{*}i}p\left(s_{k}\right)\prod_{k\in\partial i\setminus j}\nu_{ki}\left(t_{k},t_{i}\right)\\
+ & \propto\sum_{\left\{ \hat{t}_{k}\right\} _{k\in\partial^{*}i\setminus j}}\sum_{s_{j},s_{i^{*}}}\left(\sum_{\hat{t}_{j}}\delta_{t_{j}+s_{j},\hat{t}_{j}}\right)\delta_{s_{i^{*}},\hat{t}_{i^{*}}}p\left(s_{j}\right)p\left(s_{i^{*}}\right)\delta\left(t_{i},\min_{k\in\partial^{*}i}\hat{t}_{k}\right)\prod_{k\in\partial i\setminus j}\sum_{s_{k}}p\left(s_{k}\right)\nu_{ki}\left(\hat{t}_{k}-s_{k},t_{i}\right)\\
+ & \propto\sum_{\left\{ \hat{t}_{k}\right\} _{k\in\partial^{*}i}}\delta\left(t_{i},\min_{k\in\partial^{*}i}\hat{t}_{k}\right)\left(\prod_{k\in\partial i\setminus j}\mu_{ki}\left(\hat{t}_{k},t_{i}\right)\right)\left(\sum_{s_{j}}\delta_{t_{j}+s_{j},\hat{t}_{j}}p\left(s_{j}\right)\right)p\left(\hat{t}_{i^{*}}\right)\\
+ & \propto\prod_{k\in\partial i\setminus j}\mu_{ki}\left(\hat{t}_{k}\geq t_{i},t_{i}\right)\Lambda\left(t_{i}-t_{j}-1\right)p\left(\hat{t}_{i^{*}}\geq t_{i}\right)-\prod_{k\in\partial i\setminus j}\mu_{ki}\left(\hat{t}_{k}>t_{i},t_{i}\right)\Lambda\left(t_{i}-t_{j}\right)p\left(\hat{t}_{i^{*}}>t_{i}\right)\\
+ & \propto\prod_{k\in\partial i\setminus j}\mu_{ki}\left(\hat{t}_{k}\geq t_{i},t_{i}\right)\Lambda\left(t_{i}-t_{j}-1\right)\left(\delta_{t_{i},0}+\left(1-\gamma\right)\left(1-\delta_{t_{i},0}\right)\right)-\prod_{k\in\partial i\setminus j}\mu_{ki}\left(\hat{t}_{k}>t_{i},t_{i}\right)\Lambda\left(t_{i}-t_{j}\right)\left(1-\gamma\right)\\
+\end{align*}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+note that 
+\begin_inset Formula 
+\begin{align*}
+\sum_{\hat{t}_{j}\geq t_{i}}\sum_{s_{j}}\delta_{t_{j}+s_{j},\hat{t}_{j}}p\left(s_{j}\right) & =\sum_{s_{j}\geq t_{i}-t_{j}}p\left(s_{j}\right)\\
+ & =\Lambda\left(t_{i}-t_{j}-1\right)
+\end{align*}
+
+\end_inset
+
+ and 
+\begin_inset Formula $\sum_{\hat{t}_{j}>t_{i}}\sum_{s_{j}}\delta_{t_{j}+s_{j},\hat{t}_{j}}p\left(s_{j}\right)=\sum_{s_{j}>t_{i}-t_{j}}p\left(s_{j}\right)=\Lambda\left(t_{i}-t_{j}\right)$
+\end_inset
+
+ and
+\begin_inset Formula 
+\begin{align*}
+\sum_{\hat{t}_{i^{*}}\geq t_{i}}p\left(\hat{t}_{i^{*}}\right) & =\delta_{t_{i},0}+\left(1-\gamma\right)\left(1-\delta_{t_{i},0}\right)
+\end{align*}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Then 
+\begin_inset Formula 
+\begin{align*}
+\mu_{ij}\left(\hat{t}_{i}\geq t_{j},t_{j}\right) & =\sum_{\hat{t}_{i}\geq t_{j}}\mu_{ij}\left(\hat{t}_{i},t_{j}\right)\\
+ & =\sum_{t_{i}}\nu_{ij}\left(t_{i},t_{j}\right)\sum_{s_{i}\geq t_{j}-t_{i}}p\left(s_{i}\right)\\
+ & =\sum_{t_{i}}\nu_{ij}\left(t_{i},t_{j}\right)\Lambda\left(t_{j}-t_{i}-1\right)
+\end{align*}
+
+\end_inset
+
+and 
+\begin_inset Formula $\mu_{ij}\left(\hat{t}_{i}>t_{j},t_{j}\right)=\sum_{t_{i}}\nu_{ij}\left(t_{i},t_{j}\right)\Lambda\left(t_{j}-t_{i}\right)$
+\end_inset
+
+.
+\end_layout
+
+\end_body
+\end_document
