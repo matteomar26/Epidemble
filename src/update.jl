@@ -97,9 +97,10 @@ function pop_dynamics!(M::Model; iterations = 100, callback = (x...)->nothing)
         callback(it, M)
         s_new = sum(M.belief,dims=2) / N
         if sum(abs.(s_new .- s_old)) <= 1/sqrt(N)
-            return sum(abs.(s_new .- s_old))
+            return it # we return the iteration at which the pop-dyn converged
         end
     end
+    return iterations
 end
 
 FatTail(support,k) = DiscreteNonParametric(support, normalize!(1 ./ support .^ k))
