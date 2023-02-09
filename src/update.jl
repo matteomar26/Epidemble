@@ -96,7 +96,9 @@ function pop_dynamics!(M::Model; iterations = 100, callback = (x...)->nothing)
         end
         callback(it, M)
         s_new = sum(M.belief,dims=2) / N
-        (sum(abs.(s_new .- s_old)) <= 1/sqrt(N)) && return sum(abs.(s_new .- s_old))
+        if sum(abs.(s_new .- s_old)) <= 1/sqrt(N)
+            return sum(abs.(s_new .- s_old))
+        end
     end
 end
 
