@@ -33,7 +33,7 @@ obs(M::Model, ti, τi, oi) = oi ? (((ti <= M.T) == (τi <= M.T)) ? 1.0 - M.fr : 
 function normalize!(m)
     s = sum(m)
     @assert s > 0
-    m ./= sum(m)
+    m ./= s
 end
 
 function update!(M::Model, i)
@@ -52,17 +52,17 @@ function update!(M::Model, i)
         iszero(ξ) && continue
         pseed = iszero(ti) ? γi : 1 - γi
         phi = 0 < ti < T+1
-        m1full = cavity!(M1, (@view μ1[ti, :]), *, 1.0)
-        m0full = cavity!(M0, (@view μ0[ti, :]), *, 1.0)
+        m1full = cavity!(M1, (@view μ1[ti, :]), *, ξ * pseed)
+        m0full = cavity!(M0, (@view μ0[ti, :]), *, ξ * pseed)
         for (j, m1, m0) in zip(∂out, M1, M0)
             for tj in 0:T+1
-                ν = ξ * pseed * (Λ[ti - tj - 1] * m1 - phi * Λ[ti - tj] * m0)
+                ν =  Λ[ti - tj - 1] * m1 - phi * Λ[ti - tj] * m0
                 #ν = ξ * ((ti == 0 ? 1.0 : (1 - γi)) * Λ[ti - tj - 1] * m1 - (1 - γi) * Λ[ti - tj] * m0)
                 μ[tj, 1, j] += ν * Λ[tj - ti - 1]
                 μ[tj, 0, j] += ν * Λ[tj - ti]
             end
         end
-        belief[ti, i] = ξ * pseed * (m1full - phi * m0full)
+        belief[ti, i] = m1full - phi * m0full
     end
     normalize!(@view belief[:, i])
     for j in ∂out
