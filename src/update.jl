@@ -87,16 +87,17 @@ function rand_disorder(M::Model)
 end
 
 
-
 function pop_dynamics!(M::Model; iterations = 100, callback = (x...)->nothing)
-    N = popsize(M)
+    N = popsize(M)    
     for it = 1:iterations
+        s_old = sum(M.belief,dims=2) / N
         for i = 1:N
             update!(M,i)
         end
         callback(it, M)
+        s_new = sum(M.belief,dims=2) / N
+        (sum(abs.(s_new .- s_old)) <= 1/sqrt(N)) && return sum(abs.(s_new .- s_old))
     end
 end
-
 
 FatTail(support,k) = DiscreteNonParametric(support, normalize!(1 ./ support .^ k))
