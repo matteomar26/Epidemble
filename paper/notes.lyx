@@ -100,6 +100,21 @@ with
 \end_layout
 
 \begin_layout Standard
+with 
+\begin_inset Formula $\mu_{ki}\left(\hat{t}_{k},t_{i}\right)=\sum_{s_{k}}p\left(s_{k}\right)\nu_{ki}\left(\hat{t}_{k}-s_{k},t_{i}\right)$
+\end_inset
+
+
+\begin_inset Formula 
+\[
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
 note that 
 \begin_inset Formula 
 \begin{align*}
@@ -140,6 +155,25 @@ and
 \end_inset
 
 .
+\end_layout
+
+\begin_layout Standard
+Single edge case:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{align*}
+\nu_{ij}\left(t_{i},t_{j}\right) & \propto\sum_{s_{j},s_{i^{*}}}\delta\left(t_{i},\min\left\{ t_{j}+s_{j},s_{i^{*}}\right\} \right)p\left(s_{j}\right)p\left(s_{i^{*}}\right)\\
+ & \propto p\left(s_{j}\geq t_{i}-t_{j}\right)p\left(s_{i^{*}}\geq t_{i}\right)-p\left(s_{j}>t_{i}-t_{j}\right)p\left(s_{i^{*}}>t_{i}\right)\\
+ & \propto\Lambda\left(t_{i}-t_{j}-1\right)\left(\delta_{t_{i},0}+\left(1-\gamma\right)\left(1-\delta_{t_{i},0}\right)\right)-\Lambda\left(t_{i}-t_{j}\right)\left(1-\gamma\right)\\
+\mu_{ij}\left(\hat{t}_{i}\geq t_{j},t_{j}\right) & \propto\sum_{t_{i}}\left(\Lambda\left(t_{i}-t_{j}-1\right)\left(\delta_{t_{i},0}+\left(1-\gamma\right)\left(1-\delta_{t_{i},0}\right)\right)-\Lambda\left(t_{i}-t_{j}\right)\left(1-\gamma\right)\right)\Lambda\left(t_{j}-t_{i}-1\right)\\
+\mu_{ij}\left(\hat{t}_{i}>t_{j},t_{j}\right) & \propto\sum_{t_{i}}\left(\Lambda\left(t_{i}-t_{j}-1\right)\left(\delta_{t_{i},0}+\left(1-\gamma\right)\left(1-\delta_{t_{i},0}\right)\right)-\Lambda\left(t_{i}-t_{j}\right)\left(1-\gamma\right)\right)\Lambda\left(t_{j}-t_{i}\right)
+\end{align*}
+
+\end_inset
+
+
 \end_layout
 
 \end_body
