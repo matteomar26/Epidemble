@@ -266,7 +266,8 @@ function pop_dynamics(N, T, λp, λi, γp, γi, degree_dist; tot_iterations = 5,
             update_μ!(μ,ν,Σ,l,sij,sji,T,a,Paux)     
         end
     end
-    
+    return μ
+end#=
     p = fill(0.0, 0:T+1, 0:T+1, 0:T+1)
     marg = fill(0.0, 1:N, 0:T+1, 0:T+1)
 
@@ -278,7 +279,7 @@ function pop_dynamics(N, T, λp, λi, γp, γi, degree_dist; tot_iterations = 5,
         calculate_belief!(view(marg,l,:,:),μ,neighbours,xi0,T,γi,oi; fr) 
     end
     return marg
-end
+end=#
 
 
 function makeDistrib(degreetype,d)
