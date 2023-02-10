@@ -27,8 +27,17 @@ function Model(; N, T, γp, λp, γi=γp, λi=λp, fr=0.0, dilution=0.0, distrib
     Model(T, γp, λp, γi, λi, μ, τμ, belief, τbelief, fr, dilution, distribution, Λ)
 end
 
-obs(M::Model, ti, τi, oi) = oi ? (((ti <= M.T) == (τi <= M.T)) ? 1.0 - M.fr : M.fr) : 1.0
+#function obs(M::Model, ti, τi, oi) 
+ #   return oi ? (((ti <= M.T) == (τi <= M.T)) ? 1.0 - M.fr : M.fr) : 1.0
+#end
 
+function obs(M::Model, ti, τi, oi) 
+    if oi == 1  
+        return ((ti <= M.T) == (τi <= M.T)) ? 1.0 - M.fr : M.fr 
+    elseif oi == 0
+        return 1.0
+    end
+end
  
 function normalize!(m)
     s = sum(m)
@@ -38,13 +47,19 @@ end
 
 function update!(M::Model, i)
     @unpack fr, γi, T, Λ, μ, belief, τμ, τbelief = M
-    xi0,∂in,S,oi = rand_disorder(M)
-    τout, τi = @views cavity(τμ[∂in], min, xi0 ? 0 : T+1)
+    xi0,∂in,S,oi = rand_disorder(M) 
+    #we take the minimum of the incoming infections except one neighbour 
+    τout, τi = @views cavity(τμ[∂in], min, xi0 ? 0 : T+1) 
+    #the minimum over all the neighbours (including the zero patient variable) is the infection time
     τbelief[i] = τi
+    #the outgoing elements of population are extracted
     ∂out = rand(1:popsize(M), length(∂in))
+    #a copy of the incoming messages is made...
     μ1, μ0 = μ[:,1,∂in], μ[:,0,∂in]
+    #... in order not to put them to zero
     μ[:, :, ∂out] .= 0
     belief[:, i] .= 0
+    #the outgoing messages are updated
     τμ[∂out] .= τout .+ S
     M1,M0 = zeros(length(∂in)), zeros(length(∂in))
     for ti = 0:T+1
@@ -87,7 +102,7 @@ function rand_disorder(M::Model)
 end
 
 
-function pop_dynamics!(M::Model; iterations = 100, callback = (x...)->nothing)
+function pop_dynamics!(M::Model; iterations = 100, tol = 1/sqrt(N), callback = (x...)->nothing)
     N = popsize(M)    
     for it = 1:iterations
         s_old = sum(M.belief,dims=2) / N
@@ -96,8 +111,8 @@ function pop_dynamics!(M::Model; iterations = 100, callback = (x...)->nothing)
         end
         callback(it, M)
         s_new = sum(M.belief,dims=2) / N
-        if sum(abs.(s_new .- s_old)) <= 1/sqrt(N)
-            return it # we return the iteration at which the pop-dyn converged
+        if sum(abs.(s_new .- s_old)) <= tol
+           return it # we return the iteration at which the pop-dyn converged
         end
     end
     return iterations

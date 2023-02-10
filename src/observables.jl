@@ -65,7 +65,7 @@ function avgAUC(M::Model)
             result = 0
             τi = M.τbelief[i]
             τj = M.τbelief[j]
-            (τj <= τi) && continue 
+            #(τj <= τi) && continue 
             for t = τi : τj - 1
                 count[t] += 1
                 pi = sum(M.belief[0:t,i])
