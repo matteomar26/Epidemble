@@ -234,7 +234,7 @@ function rand_disorder(γp, λp, dist)
     return xi0, sij, sji, d, oi
 end
 
-function pop_dynamics(M::Model; tot_iterations = 5)
+function pop_dynamics(M::Model; tot_iterations = 5, tol = 1/sqrt(popsize(M)))
     T = M.T
     N = popsize(M)
     Paux = fill(0.0, 0:1, 0:2)
@@ -243,6 +243,7 @@ function pop_dynamics(M::Model; tot_iterations = 5)
     #  in the inferred time factor node)
     ν = fill(0.0, 0:T+1, 0:T+1, 0:T+1, 0:2)
     for iterations = 1:tot_iterations
+        avg_old, err_old = avg_err(M)
         for l = 1:N
             # Extraction of disorder: state of individual i: xi0, delays: sij and sji
             xi0,sij,sji,d,oi = rand_disorder(M.γp,M.λp,M.residual)
@@ -259,17 +260,27 @@ function pop_dynamics(M::Model; tot_iterations = 5)
             # We overwrite the μ in postition μ[:,:,:,:,l]
             update_μ!(M,ν,l,sij,sji,Paux)     
         end
+        # Now we take the population of μ and use it to extract marginals.
+        for l = 1:N
+            xi0,sij,sji,d,oi = rand_disorder(M.γp,M.λp,degree_dist)
+            neighbours = rand(1:N,d)
+            calculate_belief!(M,l,neighbours,xi0,oi) 
+        end
+        avg_new, err_new = avg_err(M)
+        if sum(abs.(avg_new .- avg_old) .+ err_old .+ err_new) < tol 
+            return iterations
+        end
+        #@show sum(abs.(avg_new .- avg_old) .+ err_old .+ err_new)
     end
-   # p = fill(0.0, 0:T+1, 0:T+1, 0:T+1)
-    marg = fill(0.0, 1:N, 0:T+1, 0:T+1)
-
-    # Now we take out converged population of μ and use it to extract marginals.
-    for l = 1:N
-        xi0,sij,sji,d,oi = rand_disorder(M.γp,M.λp,degree_dist)
-        neighbours = rand(1:N,d)
-        calculate_belief!(M,l,neighbours,xi0,oi) 
-    end
+    return tot_iterations
+    
 end
 
+function avg_err(M::Model)
+    N = popsize(M)
+    avg_bel = reshape(sum(sum(M.belief,dims=2),dims=3) ./ (N*(M.T+2)),M.T+2) 
+    err_bel = sqrt.(reshape(sum(sum(M.belief .^ 2,dims=2),dims=3) ./ (N * (M.T+2)),M.T+2) .- (avg_bel .^ 2)) ./ sqrt(popsize(M))
+    return avg_bel, err_bel
+end
 
 FatTail(support,k) = DiscreteNonParametric(support, normalize!(1 ./ support .^ k))
