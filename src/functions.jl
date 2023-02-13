@@ -223,13 +223,13 @@ residual(d::Poisson) = d #residual degree of poiss distribution is poisson with 
 residual(d::Dirac) = Dirac(d.value - 1) #residual degree of rr distribution (delta) is a delta at previous vale
 residual(d::DiscreteNonParametric) = DiscreteNonParametric(support(d) .- 1, (probs(d) .* support(d)) / sum(probs(d) .* support(d)))
 
-function rand_disorder(γp, λp, dist)
+function rand_disorder(γp, λp, dist, dilution)
     r = 1.0 / log(1-λp)
     sij = floor(Int,log(rand())*r) + 1
     sji = floor(Int,log(rand())*r) + 1
     xi0 = (rand() < γp);
     d = rand(dist)
-    oi = rand() > M.dilution 
+    oi = rand() > dilution 
     # oi = 1 if the particle is observed, oi = 0 if the particle is not observed 
     return xi0, sij, sji, d, oi
 end
@@ -246,7 +246,7 @@ function pop_dynamics(M::Model; tot_iterations = 5, tol = 1/sqrt(popsize(M)))
         avg_old, err_old = avg_err(M)
         for l = 1:N
             # Extraction of disorder: state of individual i: xi0, delays: sij and sji
-            xi0,sij,sji,d,oi = rand_disorder(M.γp,M.λp,M.residual)
+            xi0,sij,sji,d,oi = rand_disorder(M.γp,M.λp,M.residual,M.dilution)
             
             # Initialization of ν=0
             ν .= 0.0
@@ -262,7 +262,7 @@ function pop_dynamics(M::Model; tot_iterations = 5, tol = 1/sqrt(popsize(M)))
         end
         # Now we take the population of μ and use it to extract marginals.
         for l = 1:N
-            xi0,sij,sji,d,oi = rand_disorder(M.γp,M.λp,degree_dist)
+            xi0,sij,sji,d,oi = rand_disorder(M.γp,M.λp,M.residual,M.dilution)
             neighbours = rand(1:N,d)
             calculate_belief!(M,l,neighbours,xi0,oi) 
         end
