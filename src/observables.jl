@@ -29,15 +29,15 @@ end=#
 
 
 function MSE(marg)
-    N = size(marg,1)
-    T = size(marg,2) - 2
+    N = size(marg,3)
+    T = size(marg,1) - 2
     sq_err = OffsetArrays.OffsetArray(zeros(T+1),-1)
     for t = 0 : T 
         for l = 1 : N
             for τi = 0 : T + 1 
-                (sum(marg[l, :, τi]) == 0) && continue
+                (sum(marg[:, τi,l]) == 0) && continue
                 xi_pt = (τi <= t)
-                pi_inf = sum(marg[l,0:t,τi]) 
+                pi_inf = sum(marg[0:t,τi,l]) 
                 sq_err[t] += (pi_inf - xi_pt) ^ 2 
             end
         end
@@ -49,15 +49,15 @@ end
 
 
 function avgOverlap(marg)
-    N = size(marg,1)
-    T = size(marg,2) - 2
+    N = size(marg,3)
+    T = size(marg,1) - 2
     overlap = OffsetArrays.OffsetArray(zeros(T+1),-1)
     for t = 0 : T 
         for l = 1 : N
             for τi = 0 : T + 1
-                (sum(marg[l, :, τi]) == 0) && continue
+                (sum(marg[:, τi, l]) == 0) && continue
                 xi_pt = (τi <= t)
-                xi_inf = sum(marg[l,0:t,τi]) > 0.5
+                xi_inf = sum(marg[0:t,τi,l]) > 0.5
                 overlap[t] += (xi_pt == xi_inf)
             end
         end
@@ -67,22 +67,22 @@ function avgOverlap(marg)
 end
 
 function avgAUC(marg)
-    N = size(marg,1)
-    T = size(marg,2) - 2
+    N = size(marg,3)
+    T = size(marg,1) - 2
     AUC = OffsetArrays.OffsetArray(zeros(T+1),-1)
     count = OffsetArrays.OffsetArray(zeros(T+1),-1)
     for l = 1 :  N 
         for m = l + 1 : min(N,l+400)
             result = 0
             for τi = 0 : T 
-                (sum(marg[l, :, τi]) == 0 ) && continue
+                (sum(marg[:, τi, l]) == 0 ) && continue
                 for τj = τi + 1 : T + 1
-                    (sum(marg[m, :, τj]) == 0) && continue
+                    (sum(marg[:, τj, m]) == 0) && continue
                     # at the perfect inference for t=τj you would sum the diagonal
                     for t = τi : τj - 1
                         count[t] += 1
-                        pi = sum(marg[l, 0:t, τi])
-                        pj = sum(marg[m, 0:t, τj])
+                        pi = sum(marg[0:t, τi, l])
+                        pj = sum(marg[0:t, τj, m])
                         if pi ≈ pj
                             AUC[t] += 1/2
                         elseif pi > pj
