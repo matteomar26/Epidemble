@@ -1,29 +1,40 @@
-using Distributions
+using Distributions,UnPack, OffsetArrays
 
-#=function obs(ti, taui; fr = 0.0, dilution = 0.0)
-    if rand() >= dilution
-        return (((ti <= T) == (taui<=T)) ? 1.0 - fr : fr)
-    else
-        return 1.0
-    end
-end=#
-
-function obs(ti, taui, oi; fr = 0.0)
-    if oi == 1
-        return (((ti <= T) == (taui<=T)) ? 1.0 - fr : fr)
-    else
-        return 1.0
-    end
+struct Model{D,D2,M,M2,O}
+    T::Int
+    γp::Float64
+    λp::Float64
+    γi::Float64
+    λi::Float64
+    μ::M
+    belief::M2
+    fr::Float64
+    dilution::Float64
+    distribution::D
+    residual::D2
+    Λ::O
 end
 
-function calculate_ν!(ν,μ,neighbours,xi0,T,γi,a,oi; fr = 0.0)
+popsize(M::Model) = size(M.belief,3)
+
+function Model(; N, T, γp, λp, γi=γp, λi=λp, fr=0.0, dilution=0.0, distribution) 
+    μ = fill(1.0 / (6*(T+2)^2), 0:T+1, 0:1, 0:T+1, 0:2, 1:N)
+    belief = fill(0.0, 0:T+1, 0:T+1, N)
+    Λ = OffsetArray([t <= 0 ? 1.0 : (1-λi)^t for t = -T-2:T+1], -T-2:T+1)
+    Model(T, γp, λp, γi, λi, μ, belief, fr, dilution, distribution, residual(distribution), Λ)
+end
+
+obs(M::Model, ti, τi, oi) = oi ? (((ti <= M.T) == (τi <= M.T)) ? 1.0 - M.fr : M.fr) : 1.0
+
+function calculate_ν!(ν,M::Model,neighbours,xi0,oi)
+    @unpack T,γi,Λ,μ = M
     if xi0 == 0
         for τi = 1:T+1
             for ti = 0:T+1
                 #first we check consistency between
                 # the planted time τi and the inferred 
                 #time ti by checking the observation constraint
-                ξ = obs(ti,τi,oi,fr=fr)
+                ξ = obs(M,ti,τi,oi)
                 if ξ == 0.0 #if the observation is NOT satisfied
                     continue  # ν = 0
                 end
@@ -40,16 +51,16 @@ function calculate_ν!(ν,μ,neighbours,xi0,T,γi,a,oi; fr = 0.0)
                 # we initialize the m's to one and then we 
                 # loop a product over neighbours
                 for k in neighbours 
-                    m1 *= μ[k,ti,1,τi,1] + μ[k,ti,1,τi,2]
-                    m2 *= μ[k,ti,0,τi,1] + μ[k,ti,0,τi,2]
-                    m3 *= μ[k,ti,1,τi,2]
-                    m4 *= μ[k,ti,0,τi,2]
+                    m1 *= μ[ti,1,τi,1,k] + μ[ti,1,τi,2,k]
+                    m2 *= μ[ti,0,τi,1,k] + μ[ti,0,τi,2,k]
+                    m3 *= μ[ti,1,τi,2,k]
+                    m4 *= μ[ti,0,τi,2,k]
                 end
                 #Now we have everything to calculate ν
                 for tj=0:T+1                
-                    ν[ti,tj,τi,1] = ξ  * seed * (a[ti-tj-1] * m1 - phi * a[ti-tj] * m2)
+                    ν[ti,tj,τi,1] = ξ  * seed * (Λ[ti-tj-1] * m1 - phi * Λ[ti-tj] * m2)
                     # We use the fact that ν for σ=2 is just ν at σ=1 plus a term
-                    ν[ti,tj,τi,2] = ν[ti,tj,τi,1] + ξ * (τi<T+1) * seed * (phi * a[ti-tj] * m4 - a[ti-tj-1] * m3)
+                    ν[ti,tj,τi,2] = ν[ti,tj,τi,1] + ξ * (τi<T+1) * seed * (phi * Λ[ti-tj] * m4 - Λ[ti-tj-1] * m3)
                 end
             end
         end
@@ -61,7 +72,7 @@ function calculate_ν!(ν,μ,neighbours,xi0,T,γi,a,oi; fr = 0.0)
 
         for tj = 0:T+1
             for ti = 0:T+1
-                ξ = obs(ti,0,oi,fr=fr)
+                ξ = obs(M,ti,0,oi)
                 if ξ == 0.0  #if the observation is NOT satisfied
                     continue
                 end
@@ -74,11 +85,11 @@ function calculate_ν!(ν,μ,neighbours,xi0,T,γi,a,oi; fr = 0.0)
                 # We perform the product over neighbours
                 m1, m2 = 1.0, 1.0
                 for k in neighbours                
-                    m1 *= μ[k,ti,1,0,0] + μ[k,ti,1,0,1] + μ[k,ti,1,0,2]
-                    m2 *= μ[k,ti,0,0,0] + μ[k,ti,0,0,1] + μ[k,ti,0,0,2]
+                    m1 *= μ[ti,1,0,0,k] + μ[ti,1,0,1,k] + μ[ti,1,0,2,k]
+                    m2 *= μ[ti,0,0,0,k] + μ[ti,0,0,1,k] + μ[ti,0,0,2,k]
                 end
                 #We calculate ν in the zero patient case
-                ν[ti,tj,0,:] .= ξ * seed * (a[ti-1-tj] * m1 - phi * a[ti-tj] * m2)
+                ν[ti,tj,0,:] .= ξ * seed * (Λ[ti-1-tj] * m1 - phi * Λ[ti-tj] * m2)
             end
         end
     end
@@ -94,15 +105,16 @@ function calculate_ν!(ν,μ,neighbours,xi0,T,γi,a,oi; fr = 0.0)
 end
 
 
-function calculate_belief!(b,μ,neighbours,xi0,T,γi,oi; fr = 0.0)
-    b .= 0
+function calculate_belief!(M::Model,l,neighbours,xi0,oi) 
+    @unpack T, belief, γi, μ = M
+    belief[:,:,l] .= 0
     if xi0 == 0
         for τi = 1:T+1
             for ti = 0:T+1
                 #first we check consistency between
                 # the planted time τi and the inferred 
                 #time ti by checking the observation constraint
-                ξ = obs(ti,τi,oi,fr=fr)
+                ξ = obs(M,ti,τi,oi)
                 if ξ == 0.0 #if the observation is NOT satisfied
                     continue  # ν = 0
                 end
@@ -119,14 +131,14 @@ function calculate_belief!(b,μ,neighbours,xi0,T,γi,oi; fr = 0.0)
                 # we initialize the m's to one and then we 
                 # loop a product over neighbours
                 for k in neighbours 
-                    m1 *= μ[k,ti,1,τi,1] + μ[k,ti,1,τi,2]
-                    m2 *= μ[k,ti,0,τi,1] + μ[k,ti,0,τi,2]
-                    m3 *= μ[k,ti,1,τi,2]
-                    m4 *= μ[k,ti,0,τi,2]
+                    m1 *= μ[ti,1,τi,1,k] + μ[ti,1,τi,2,k]
+                    m2 *= μ[ti,0,τi,1,k] + μ[ti,0,τi,2,k]
+                    m3 *= μ[ti,1,τi,2,k]
+                    m4 *= μ[ti,0,τi,2,k]
                 end
                 #Now we have everything to calculate ν
                     # We use the fact that ν for σ=2 is just ν at σ=1 plus a term
-                b[ti,τi] = ξ  * seed * ( m1 - phi * m2) + ξ * (τi<T+1) * seed * (phi *  m4 -  m3)
+                belief[ti,τi,l] = ξ  * seed * ( m1 - phi * m2) + ξ * (τi<T+1) * seed * (phi *  m4 -  m3)
             end
         end
     else
@@ -136,7 +148,7 @@ function calculate_belief!(b,μ,neighbours,xi0,T,γi,oi; fr = 0.0)
         # so we separated the cases
 
         for ti = 0:T+1
-            ξ = obs(ti,0,oi,fr=fr)
+            ξ = obs(M,ti,0,oi)
             if ξ == 0.0  #if the observation is NOT satisfied
                 continue
             end
@@ -149,28 +161,33 @@ function calculate_belief!(b,μ,neighbours,xi0,T,γi,oi; fr = 0.0)
             # We perform the product over neighbours
             m1, m2 = 1.0, 1.0
             for k in neighbours                
-                m1 *= μ[k,ti,1,0,0] + μ[k,ti,1,0,1] + μ[k,ti,1,0,2]
-                m2 *= μ[k,ti,0,0,0] + μ[k,ti,0,0,1] + μ[k,ti,0,0,2]
+                m1 *= μ[ti,1,0,0,k] + μ[ti,1,0,1,k] + μ[ti,1,0,2,k]
+                m2 *= μ[ti,0,0,0,k] + μ[ti,0,0,1,k] + μ[ti,0,0,2,k]
             end
             #We calculate ν in the zero patient case
-            b[ti,0] = ξ * seed * ( m1 - phi *  m2)
+            belief[ti,0,l] = ξ * seed * ( m1 - phi *  m2)
         end
     end
-    if any(isnan,b)
-        println("NaN in b")
+    if any(isnan, @view belief[:,:,l])
+        println("NaN in belief")
         return
     end
-    if sum(b) == 0
-        println("sum-zero b")
+    S = sum(@view belief[:,:,l])
+    if S == 0
+        println("sum-zero belief")
         return
     end    
-    b ./= sum(b);
+    belief[:,:,l] ./= S
 end
 
 
 
-function update_μ!(μ,ν,Σ,l,sij,sji,T,a,P)
-    μ[l,:,:,:,:] .= 0
+function update_μ!(M,ν,l,sij,sji,P)
+    @unpack T,Λ,μ = M
+    μ[:,:,:,:,l] .= 0
+    # First we calculate and store the cumulated of ν with respect to 
+    # planted time, i.e. the third argument. We call Σ this cumulated 
+    Σ = cumsum(ν,dims=3)
     @inbounds for tj = 0:T+1
         for τj = 0:T+1
             #First of all we set to 0 the function we want to update
@@ -182,15 +199,15 @@ function update_μ!(μ,ν,Σ,l,sij,sji,T,a,P)
                 Γ = Σ[ti,tj,min(τj+sji-1,T+1),2] - (τj-sij>=0)*Σ[ti,tj,max(τj-sij,0),2]+(τj+sji<=T+1)*ν[ti,tj,min(τj+sji,T+1),1]+
                     Σ[ti,tj,T+1,0] - Σ[ti,tj,min(τj+sji,T+1),0]
                 for c = 0:1
-                    P[c,0] += a[tj-ti-c] * (τj-sij-1>=0) * Σ[ti,tj,max(τj-sij-1,0),2]
-                    P[c,1] += a[tj-ti-c] * (τj-sij>=0) * ν[ti,tj,max(τj-sij,0),2]
-                    P[c,2] += a[tj-ti-c] * Γ
+                    P[c,0] += Λ[tj-ti-c] * (τj-sij-1>=0) * Σ[ti,tj,max(τj-sij-1,0),2]
+                    P[c,1] += Λ[tj-ti-c] * (τj-sij>=0) * ν[ti,tj,max(τj-sij,0),2]
+                    P[c,2] += Λ[tj-ti-c] * Γ
                 end
             end
-            μ[l,tj,:,τj,:] = P
+            μ[tj,:,τj,:,l] = P
         end
     end
-    S = sum(@view μ[l,:,:,:,:])
+    S = sum(@view μ[:,:,:,:,l])
     if S == 0.0
         println("sum-zero μ")
         return
@@ -199,22 +216,7 @@ function update_μ!(μ,ν,Σ,l,sij,sji,T,a,P)
         println("NaN in μ")
         return
     end
-    μ[l,:,:,:,:] ./= S;
-end
-
-function update_marginal!(marg,l,ν1,ν2,Σ,sij,sji,T)
-    marg[l,:,:] .= 0.0
-    for ti = 0:T+1
-        for τi = 0:T+1
-            for tj = 0:T+1
-                Γ = Σ[tj,ti,min(τi+sij-1,T+1),2]-(τi-sji>=0)*Σ[tj,ti,max(τi-sji,0),2]+(τi+sij<=T+1)*ν2[tj,ti,min(τi+sij,T+1),1]
-                   +Σ[tj,ti,T+1,0]-Σ[tj,ti,min(τi+sij,T+1),0]
-                marg[l,ti,τi] += ν1[ti,tj,τi,0]*(τi-sji-1>=0)*Σ[tj,ti,max(τi-sji-1,0),2] +
-                              ν1[ti,tj,τi,1]*(τi-sji>=0)*ν2[tj,ti,max(τi-sji,0),2] + ν1[ti,tj,τi,2]*Γ 
-            end
-        end
-    end
-    marg[l,:,:] ./= sum(@view marg[l,:,:])
+    μ[:,:,:,:,l] ./= S;
 end
 
 residual(d::Poisson) = d #residual degree of poiss distribution is poisson with same param
@@ -227,70 +229,47 @@ function rand_disorder(γp, λp, dist)
     sji = floor(Int,log(rand())*r) + 1
     xi0 = (rand() < γp);
     d = rand(dist)
-    return xi0, sij, sji, d
+    oi = rand() > M.dilution 
+    # oi = 1 if the particle is observed, oi = 0 if the particle is not observed 
+    return xi0, sij, sji, d, oi
 end
 
-function pop_dynamics(N, T, λp, λi, γp, γi, degree_dist; tot_iterations = 5, fr = 0.0, dilution = 0.0)
-    μ = fill(1.0 / (6*(T+2)^2), 1:N, 0:T+1, 0:1, 0:T+1, 0:2)
+function pop_dynamics(M::Model; tot_iterations = 5)
+    T = M.T
+    N = popsize(M)
     Paux = fill(0.0, 0:1, 0:2)
-    res_dist = residual(degree_dist) #we calculate the distribution of the residual degree
-    
     #Precalculation of the function a := (1-λ)^{tθ(t)}, 
     #useful for later (the function a appears
     #  in the inferred time factor node)
-    a = Dict{Int,Float64}(zip(-T-2:T+1,[ t<=0 ? 1.0 : (1-λi)^t for t = -T-2:T+1]));
-    
     ν = fill(0.0, 0:T+1, 0:T+1, 0:T+1, 0:2)
     for iterations = 1:tot_iterations
         for l = 1:N
             # Extraction of disorder: state of individual i: xi0, delays: sij and sji
-
-            xi0,sij,sji,d = rand_disorder(γp,λp,res_dist)
-
+            xi0,sij,sji,d,oi = rand_disorder(M.γp,M.λp,M.residual)
+            
             # Initialization of ν=0
             ν .= 0.0
             #Extraction of d-1 μ's from population
             neighbours = rand(1:N,d)
-            oi = rand() > dilution # oi = 1 if the particle is observed, oi = 0 if the particle is not observed 
+            
             #Beginning of calculations: we start by calculating the ν: 
-            calculate_ν!(ν,μ,neighbours,xi0,T,γi,a,oi,fr=fr)
+            calculate_ν!(ν,M,neighbours,xi0,oi)
 
             # Now we use the ν vector just calculated to extract the new μ.
-            # We overwrite the μ in postition μ[l,:,:,:,:]
-
-            # First we calculate and store the cumulated of ν with respect to 
-            # planted time, i.e. the third argument. We call Σ this cumulated 
-            Σ = cumsum(ν,dims=3)
-            
-            #then we call the update μ function
-            update_μ!(μ,ν,Σ,l,sij,sji,T,a,Paux)     
+            # We overwrite the μ in postition μ[:,:,:,:,l]
+            update_μ!(M,ν,l,sij,sji,Paux)     
         end
     end
-    return μ
-end#=
-    p = fill(0.0, 0:T+1, 0:T+1, 0:T+1)
+   # p = fill(0.0, 0:T+1, 0:T+1, 0:T+1)
     marg = fill(0.0, 1:N, 0:T+1, 0:T+1)
 
     # Now we take out converged population of μ and use it to extract marginals.
     for l = 1:N
-        xi0,sij,sji,d = rand_disorder(γp,λp,degree_dist)
+        xi0,sij,sji,d,oi = rand_disorder(M.γp,M.λp,degree_dist)
         neighbours = rand(1:N,d)
-        oi = rand() > dilution # oi = 1 if the particle is observed, oi = 0 if the particle is not observed 
-        calculate_belief!(view(marg,l,:,:),μ,neighbours,xi0,T,γi,oi; fr) 
-    end
-    return marg
-end=#
-
-
-function makeDistrib(degreetype,d)
-    if degreetype == "poisson"
-        return Poisson(d)
-    elseif degreetype == "regular"
-        return Dirac(d)
-    else degreetype == "ft4"
-        min_d, max_d = 3, 150
-        d_supp = collect(min_d:max_d)
-        d_prob = 1 ./ ((d_supp) .^ 4)
-        return degree_dist = DiscreteNonParametric(d_supp, d_prob ./ sum(d_prob))
+        calculate_belief!(M,l,neighbours,xi0,oi) 
     end
 end
+
+
+FatTail(support,k) = DiscreteNonParametric(support, normalize!(1 ./ support .^ k))
