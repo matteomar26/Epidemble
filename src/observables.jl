@@ -101,8 +101,9 @@ function avg_ninf(marg2D)
     return sum(sum(marg2D,dims=2)'[1:end-1])  #number of infected expected by the inference scheme.
 end
 
-function save_values!(inf_out,marg,marg2D)
-    inf_out[1] = avg_ninf(marg2D) #number of infected
+function save_values!(inf_out,marg,conv)
+    marg2D = reshape(sum(marg,dims=3) ./ N, T+2,T+2)
+    inf_out[1] = conv #number of infected
     inf_out[2:T+2] .= avgAUC(marg)
     inf_out[T+3 : 2*T + 3] .= avgOverlap(marg)
     inf_out[2*T + 4 : 3*T + 4] .= L1(marg2D)
@@ -110,32 +111,32 @@ function save_values!(inf_out,marg,marg2D)
 end
 
 
-function inf_vs_dil_mism(γ, λRange, λp, N, T, degreetype, d, fr , dilRange ; tot_iterations = 1 )
-    inf_out = zeros(length(λRange),length(dilRange), 4*T + 5) # 1 value for n_inf and 4(T+1) values for the AUC,overlap,L1,MSE
-    degree_dist = makeDistrib(degreetype, d)
+function inf_vs_dil_mism(γ, λRange, λp, N, T, degree_dist, fr , dilRange ; tot_iterations = 1 )
+    inf_out = zeros(length(λRange),length(dilRange), 4*T + 5) # 1 value for conv and 4(T+1) values for the AUC,overlap,L1,MSE
     Threads.@threads for (λcount,dilcount) in collect(product(1:length(λRange),1:length(dilRange)))
         λi = λRange[λcount]
         dilution = dilRange[dilcount]
         γi = γp = γ
-        marg = pop_dynamics(N, T, λp, λi, γp, γi, degree_dist, tot_iterations = tot_iterations, fr=fr, dilution=dilution)
-        marg2D = reshape((sum(marg,dims=1)./ N),T+2,T+2);
-        save_values!(@view(inf_out[λcount,dilcount,:]), marg, marg2D)
+        M = Model(N = N, T = T, γp = γp, λp = λp, γi=γi, λi=λi, fr=fr, dilution=dilution, distribution=degree_dist) ;
+        conv = pop_dynamics(M, tot_iterations = 100)
+        marg = M.belief;
+        save_values!(@view(inf_out[λcount,dilcount,:]), marg, conv)
     end
     return inf_out
 end
 
 
 
-function inf_vs_dil_optimal(γ, λRange, N, T, degreetype, d, fr , dilRange ; tot_iterations = 1 )
-    inf_out = zeros(length(λRange),length(dilRange), 4*T + 5) # 1 value for n_inf and 4(T+1) values for the AUC,overlap,L1,MSE
-    degree_dist = makeDistrib(degreetype, d)
+function inf_vs_dil_optimal(γ, λRange, N, T, degree_dist, fr , dilRange ; tot_iterations = 1 )
+    inf_out = zeros(length(λRange),length(dilRange), 4*T + 5) # 1 value for conv and 4(T+1) values for the AUC,overlap,L1,MSE
     Threads.@threads for (λcount,dilcount) in collect(product(1:length(λRange),1:length(dilRange)))
         λi = λp = λRange[λcount]
         dilution = dilRange[dilcount]
         γi = γp = γ
-        marg = pop_dynamics(N, T, λp, λi, γp, γi, degree_dist, tot_iterations = tot_iterations, fr=fr, dilution=dilution)
-        marg2D = reshape((sum(marg,dims=1)./ N),T+2,T+2);
-        save_values!(@view(inf_out[λcount,dilcount,:]),marg,marg2D)
+        M = Model(N = N, T = T, γp = γp, λp = λp, γi=γi, λi=λi, fr=fr, dilution=dilution, distribution=degree_dist) ;
+        conv = pop_dynamics(M, tot_iterations = 100)
+        marg = M.belief;
+        save_values!(@view(inf_out[λcount,dilcount,:]),marg,conv)
     end
     return inf_out
 end
