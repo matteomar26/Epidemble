@@ -94,11 +94,11 @@ function calculate_ν!(ν,M::Model,neighbours,xi0,oi)
         end
     end
     if any(isnan,ν)
-        println("NaN in ν")
+        println("NaN in ν  at $(M.λi), $(M.dilution)")
         return
     end
     if sum(ν) == 0
-        println("sum-zero ν")
+        println("sum-zero ν at $(M.λi), $(M.dilution), $(popsize(M)), $(M.fr)")
         return
     end    
     ν ./= sum(ν);    
@@ -174,7 +174,7 @@ function calculate_belief!(M::Model,l,neighbours,xi0,oi)
     end
     S = sum(@view belief[:,:,l])
     if S == 0
-        println("sum-zero belief")
+        println("sum-zero belief  at $(M.λi), $(M.dilution)")
         return
     end    
     belief[:,:,l] ./= S
@@ -209,7 +209,7 @@ function update_μ!(M,ν,l,sij,sji,P)
     end
     S = sum(@view μ[:,:,:,:,l])
     if S == 0.0
-        println("sum-zero μ")
+        println("sum-zero μ  at $(M.λi), $(M.dilution)")
         return
     end    
     if isnan(S)
