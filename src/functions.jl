@@ -234,7 +234,7 @@ function rand_disorder(γp, λp, dist, dilution)
     return xi0, sij, sji, d, oi
 end
 
-function pop_dynamics(M::Model; tot_iterations = 5, tol = 1/sqrt(popsize(M)))
+function pop_dynamics(M::Model; tot_iterations = 5, tol = 1e-10)
     T = M.T
     N = popsize(M)
     Paux = fill(0.0, 0:1, 0:2)
@@ -267,10 +267,9 @@ function pop_dynamics(M::Model; tot_iterations = 5, tol = 1/sqrt(popsize(M)))
             calculate_belief!(M,l,neighbours,xi0,oi) 
         end
         avg_new, err_new = avg_err(M)
-        if sum(abs.(avg_new .- avg_old) .+ err_old .+ err_new) < tol 
+        if sum(abs.(avg_new .- avg_old) .<= (tol .+ 0.707106781186 .* (err_old .+ err_new))) == length(avg_new) 
             return iterations
         end
-        #@show sum(abs.(avg_new .- avg_old) .+ err_old .+ err_new)
     end
     return tot_iterations
     
