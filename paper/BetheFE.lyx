@@ -1,0 +1,216 @@
+#LyX 2.3 created this file. For more info see http://www.lyx.org/
+\lyxformat 544
+\begin_document
+\begin_header
+\save_transient_properties true
+\origin unavailable
+\textclass article
+\use_default_options true
+\maintain_unincluded_children false
+\language english
+\language_package default
+\inputencoding auto
+\fontencoding global
+\font_roman "default" "default"
+\font_sans "default" "default"
+\font_typewriter "default" "default"
+\font_math "auto" "auto"
+\font_default_family default
+\use_non_tex_fonts false
+\font_sc false
+\font_osf false
+\font_sf_scale 100 100
+\font_tt_scale 100 100
+\use_microtype false
+\use_dash_ligatures true
+\graphics default
+\default_output_format default
+\output_sync 0
+\bibtex_command default
+\index_command default
+\paperfontsize default
+\use_hyperref false
+\papersize default
+\use_geometry false
+\use_package amsmath 1
+\use_package amssymb 1
+\use_package cancel 1
+\use_package esint 1
+\use_package mathdots 1
+\use_package mathtools 1
+\use_package mhchem 1
+\use_package stackrel 1
+\use_package stmaryrd 1
+\use_package undertilde 1
+\cite_engine basic
+\cite_engine_type default
+\use_bibtopic false
+\use_indices false
+\paperorientation portrait
+\suppress_date false
+\justification true
+\use_refstyle 1
+\use_minted 0
+\index Index
+\shortcut idx
+\color #008000
+\end_index
+\secnumdepth 3
+\tocdepth 3
+\paragraph_separation indent
+\paragraph_indentation default
+\is_math_indent 0
+\math_numbering_side default
+\quotes_style english
+\dynamic_quotes 0
+\papercolumns 1
+\papersides 1
+\paperpagestyle default
+\tracking_changes false
+\output_changes false
+\html_math_output 0
+\html_css_as_file 0
+\html_be_strict false
+\end_header
+
+\begin_body
+
+\begin_layout Section
+Free energy computation
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+F_{Bethe}=-\sum_{a}\log z_{a}-\sum_{i}\log z_{i}+\sum_{a,i}\log z_{ai}
+\]
+
+\end_inset
+
+Where each is a normalization constant:
+\begin_inset Formula 
+\[
+z_{a}=\sum_{x_{a}}\psi_{a}(x_{a})\prod_{i\in\partial a}m_{ia}(x_{i})
+\]
+
+\end_inset
+
+
+\begin_inset Formula 
+\[
+z_{i}=\sum_{x_{i}}\prod_{a\in\partial i}m_{ai}(x_{i})
+\]
+
+\end_inset
+
+
+\begin_inset Formula 
+\[
+z_{ai}=\sum_{x_{i}}m_{ia}(x_{i})m_{ai}(x_{i})
+\]
+
+\end_inset
+
+Now we use these formulas for the epidemic model, where messages from variable
+ to factor are equal to factor to variable, because degree is 2.
+ So 
+\begin_inset Formula 
+\[
+z_{i}=z_{ai}
+\]
+
+\end_inset
+
+
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Notice, 
+\emph on
+en passant, 
+\emph default
+that this implies 
+\begin_inset Formula $z_{i\to a}=1.$
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+So:
+\begin_inset Formula 
+\[
+F_{Bethe}=-\sum_{a}\log z_{a}+\frac{1}{2}\sum_{a,i\in\partial a}\log z_{ai}
+\]
+
+\end_inset
+
+Now we rewrite in the formalism of epidemic model:
+\begin_inset Formula 
+\[
+F_{Bethe}=-\sum_{i}\log z_{\psi_{i}}+\frac{1}{2}\sum_{i,j\in\partial i}\log z_{ij}
+\]
+
+\end_inset
+
+where:
+\begin_inset Formula 
+\begin{align*}
+z_{\psi_{i}} & =\sum_{t_{i,\partial i},\tau_{i,\partial i}}\psi_{i}(t_{i},t_{\partial i})\psi_{i}^{*}(\tau_{i},\tau_{\partial i})\xi_{i}(t_{i},\tau_{i})\prod_{j\in\partial i}m_{j\to\psi_{i}}(t_{j},t_{i},\tau_{j},\tau_{i})
+\end{align*}
+
+\end_inset
+
+
+\begin_inset Formula 
+\[
+z_{ij}=\sum_{t_{i},t_{j},\tau_{i},\tau_{j}}m_{\psi_{i}\to j}(t_{i},t_{j},\tau_{i},\tau_{j})m_{\psi_{j}\to i}(t_{j},t_{j},\tau_{j},\tau_{i})
+\]
+
+\end_inset
+
+Let us rewrite these in function of our messages 
+\begin_inset Formula $\nu$
+\end_inset
+
+ and 
+\begin_inset Formula $\mu$
+\end_inset
+
+: let us notice that 
+\begin_inset Formula $z_{\psi_{i}}=\sum_{t_{i},\tau_{i}}b_{i}(t_{i},\tau_{i})$
+\end_inset
+
+, where:
+\begin_inset Formula 
+\begin{align*}
+b_{i}(t_{i},\tau_{i}) & \propto\\
+ & \propto\gamma(t_{i})\xi_{i}(t_{i},\tau_{i})\times\\
+ & \bigg(\delta_{x_{i}^{*0},\,I}\delta_{\tau_{i},0}\prod_{k\in\partial i}\sum_{\sigma_{ki}}\mu_{k\to\psi_{i}}(t_{i},1,\tau_{i},\sigma_{ki})+\\
+ & +\delta_{x_{i}^{*0},\,S}\prod_{k\in\partial i}\sum_{\sigma_{ki}=1}^{2}\mu_{k\to\psi_{i}}(t_{i},1,\tau_{i},\sigma_{ki})+\\
+ & -\delta_{x_{i}^{*0},\,S}\prod_{k\in\partial i}\mu_{k\to\psi_{i}}(t_{i},1,\tau_{i},2)+\\
+ & -\phi(t_{i})\delta_{x_{i}^{*0},\,I}\delta_{\tau_{i},0}\prod_{k\in\partial i}\sum_{\sigma_{ki}}\mu_{k\to\psi_{i}}(t_{i},0,\tau_{i},\sigma_{ki})+\\
+ & -\delta_{x_{i}^{*0},\,S}\phi(t_{i})\prod_{k\in\partial i}\sum_{\sigma_{ki}=1}^{2}\mu_{k\to\psi_{i}}(t_{i},0,\tau_{i},\sigma_{ki})+\\
+ & +\delta_{x_{i}^{*0},\,S}\phi(t_{i})\prod_{k\in\partial i}\mu_{k\to\psi_{i}}(t_{i},0,\tau_{i},2)\Biggr).
+\end{align*}
+
+\end_inset
+
+This is because the product 
+\begin_inset Formula $\psi_{i}(t_{i},t_{\partial i})\psi_{i}^{*}(\tau_{i},\tau_{\partial i})\xi_{i}(t_{i},\tau_{i})\prod_{j\in\partial i}m_{j\to\psi_{i}}(t_{j},t_{i},\tau_{j},\tau_{i})$
+\end_inset
+
+ is almost identical to the BP message, except for the fact that the product
+ now is over all neighbours.
+ So all the manipulations introduced in the main text apply.
+ So the normalization of the marginal beliefs is indeed the 
+\begin_inset Formula $z_{\psi_{i}}.$
+\end_inset
+
+
+\end_layout
+
+\end_body
+\end_document
