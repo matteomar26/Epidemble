@@ -118,7 +118,7 @@ function inf_vs_dil_mism(γ, λRange, λp, N, T, degree_dist, fr , dilRange ; to
         dilution = dilRange[dilcount]
         γi = γp = γ
         M = Model(N = N, T = T, γp = γp, λp = λp, γi=γi, λi=λi, fr=fr, dilution=dilution, distribution=degree_dist) ;
-        conv = pop_dynamics(M, tot_iterations = 100)
+        conv = pop_dynamics(M, tot_iterations = tot_iterations)
         marg = M.belief;
         save_values!(@view(inf_out[λcount,dilcount,:]), marg, conv)
     end
@@ -134,7 +134,7 @@ function inf_vs_dil_optimal(γ, λRange, N, T, degree_dist, fr , dilRange ; tot_
         dilution = dilRange[dilcount]
         γi = γp = γ
         M = Model(N = N, T = T, γp = γp, λp = λp, γi=γi, λi=λi, fr=fr, dilution=dilution, distribution=degree_dist) ;
-        conv = pop_dynamics(M, tot_iterations = 100)
+        conv = pop_dynamics(M, tot_iterations = tot_iterations)
         marg = M.belief;
         save_values!(@view(inf_out[λcount,dilcount,:]),marg,conv)
     end
