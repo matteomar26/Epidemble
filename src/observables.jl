@@ -1,45 +1,37 @@
-function diag(marg2D)
+function compute2Dmarg(M::Model)
+    N, T = popsize(M), M.T
+    omarg2D = fill(0.0, 0:T+1, 0:T+1)
+    for i in 1:N
+        for t in 0:T+1
+            omarg2D[t, M.τbelief[i]] += M.belief[t,i]/N
+        end
+    end
+    return omarg2D.parent
+end
+
+
+function diag(M::Model)
+    marg2D = compute2Dmarg(M)
     T = size(marg2D,1) - 2
     sum([marg2D[t,t] for t=1:T+2])
 end
 
-function L1(marg2D) 
+function L1(M::Model)
+    marg2D = compute2Dmarg(M)
     T = size(marg2D,1) - 2
     [sum(marg2D[1:t,1:t]) + sum(marg2D[t+1:end,t+1:end]) for t=1:T+1]
 end
 
 
-#=function L1bis(marg)  #old function used to debug the measures L1, MSE, Overlap
-    N = size(marg,1)
-    T = size(marg,2) - 2
-    p_agree = OffsetArrays.OffsetArray(zeros(T+1),-1)
-    for t = 0 : T 
-        for l = 1 : N
-            for τi = 0 : T + 1
-                (sum(marg[l, :, τi]) == 0) && continue
-                pi_inf = sum(marg[l,0:t,τi]) 
-                p_agree[t] += (τi <= t ? pi_inf : 1 - pi_inf) #is the planted infected? if so take the prob of being infected 
-            end
-        end
-    end
-    p_agree ./= N
-    return [p_agree[t] for t = 0:T]
-end=#
-
-
-
-function MSE(marg)
-    N = size(marg,1)
-    T = size(marg,2) - 2
+function MSE(M::Model)
+    N, T = popsize(M), M.T
     sq_err = OffsetArrays.OffsetArray(zeros(T+1),-1)
     for t = 0 : T 
-        for l = 1 : N
-            for τi = 0 : T + 1 
-                (sum(marg[l, :, τi]) == 0) && continue
-                xi_pt = (τi <= t)
-                pi_inf = sum(marg[l,0:t,τi]) 
-                sq_err[t] += (pi_inf - xi_pt) ^ 2 
-            end
+        for i = 1 : N
+            τi = M.τbelief[i]
+            xi_pt = (τi <= t)
+            pi_inf = sum(M.belief[0:t,i]) 
+            sq_err[t] += (pi_inf - xi_pt) ^ 2 
         end
     end
     sq_err ./= N
@@ -48,47 +40,40 @@ end
 
 
 
-function avgOverlap(marg)
-    N = size(marg,1)
-    T = size(marg,2) - 2
+function avgOverlap(M::Model)
+    N, T = popsize(M), M.T
     overlap = OffsetArrays.OffsetArray(zeros(T+1),-1)
     for t = 0 : T 
-        for l = 1 : N
-            for τi = 0 : T + 1
-                (sum(marg[l, :, τi]) == 0) && continue
-                xi_pt = (τi <= t)
-                xi_inf = sum(marg[l,0:t,τi]) > 0.5
-                overlap[t] += (xi_pt == xi_inf)
-            end
+        for i = 1 : N
+            τi = M.τbelief[i]
+            xi_pt = (τi <= t)
+            xi_inf = sum(M.belief[0:t,i]) > 0.5
+            overlap[t] += (xi_pt == xi_inf)
         end
     end
     overlap ./= N
     return [overlap[t] for t = 0:T]
 end
 
-function avgAUC(marg)
-    N = size(marg,1)
-    T = size(marg,2) - 2
+
+function avgAUC(M::Model)
+    N, T = popsize(M), M.T
     AUC = OffsetArrays.OffsetArray(zeros(T+1),-1)
     count = OffsetArrays.OffsetArray(zeros(T+1),-1)
-    for l = 1 :  N 
-        for m = l + 1 : min(N,l+400)
+    for i = 1 :  N 
+        for j = i + 1 : min(N,i+400)
             result = 0
-            for τi = 0 : T 
-                (sum(marg[l, :, τi]) == 0 ) && continue
-                for τj = τi + 1 : T + 1
-                    (sum(marg[m, :, τj]) == 0) && continue
-                    # at the perfect inference for t=τj you would sum the diagonal
-                    for t = τi : τj - 1
-                        count[t] += 1
-                        pi = sum(marg[l, 0:t, τi])
-                        pj = sum(marg[m, 0:t, τj])
-                        if pi ≈ pj
-                            AUC[t] += 1/2
-                        elseif pi > pj
-                            AUC[t] += 1
-                        end
-                    end
+            τi = M.τbelief[i]
+            τj = M.τbelief[j]
+            #(τj <= τi) && continue 
+            for t = τi : τj - 1
+                count[t] += 1
+                pi = sum(M.belief[0:t,i])
+                pj = sum(M.belief[0:t,j])
+                if pi ≈ pj
+                    AUC[t] += 1/2
+                elseif pi > pj
+                    AUC[t] += 1
                 end
             end
         end
@@ -97,7 +82,8 @@ function avgAUC(marg)
     return [AUC[t] for t = 0:T]
 end
 
-function avg_ninf(marg2D)
+function avg_ninf(M::Model)
+    marg2D = compute2Dmarg(M)
     return sum(sum(marg2D,dims=2)'[1:end-1])  #number of infected expected by the inference scheme.
 end
 
