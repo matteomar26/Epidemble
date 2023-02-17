@@ -100,8 +100,7 @@ function calculate_ν!(ν,M::Model,neighbours,xi0,oi)
     if sum(ν) == 0
         println("sum-zero ν at $(M.λi), $(M.dilution), $(popsize(M)), $(M.fr)")
         return
-    end    
-    ν ./= sum(ν);    
+    end        
 end
 
 
@@ -178,6 +177,7 @@ function calculate_belief!(M::Model,l,neighbours,xi0,oi)
         return
     end    
     belief[:,:,l] ./= S
+    return S
 end
 
 
@@ -211,12 +211,13 @@ function update_μ!(M,ν,l,sij,sji,P)
     if S == 0.0
         println("sum-zero μ  at $(M.λi), $(M.dilution)")
         return
-    end    
+    end   
     if isnan(S)
         println("NaN in μ")
         return
     end
-    μ[:,:,:,:,l] ./= S;
+    #μ[:,:,:,:,l] ./= S; #in the original form the messages are not normalized, but 
+    #@show S
 end
 
 residual(d::Poisson) = d #residual degree of poiss distribution is poisson with same param
@@ -242,38 +243,65 @@ function pop_dynamics(M::Model; tot_iterations = 5, tol = 1e-10)
     #useful for later (the function a appears
     #  in the inferred time factor node)
     ν = fill(0.0, 0:T+1, 0:T+1, 0:T+1, 0:2)
+    F = 0 
     for iterations = 1:tot_iterations
         avg_old, err_old = avg_err(M)
+        F_itoj = 0.0
+        Fψi = 0.0
         for l = 1:N
             # Extraction of disorder: state of individual i: xi0, delays: sij and sji
-            xi0,sij,sji,d,oi = rand_disorder(M.γp,M.λp,M.residual,M.dilution)
+            xi0,sij,sji,d_res,oi = rand_disorder(M.γp,M.λp,M.residual,M.dilution)
             
             # Initialization of ν=0
             ν .= 0.0
-            #Extraction of d-1 μ's from population
-            neighbours = rand(1:N,d)
+            neighbours = rand(1:N,d_res)
             
-            #Beginning of calculations: we start by calculating the ν: 
+            #Beginning of calculations: we start by calculating the un-normalized ν: 
             calculate_ν!(ν,M,neighbours,xi0,oi)
-
+            
+            #from the un-normalized ν message it is possible to extract the orginal-message normalization z_i→j 
+            # needed for the computation of the Bethe Free energy
+            F_itoj += (d_res+1) * log(edge_normalization(M,ν,sji))
+            #!(100- 0.01 < sum(ν) < 100 + 0.01) && 
+            #@show edge_normalization(M,ν,sji)
+            #Now we can normalize ν
+            #@show edge_normalization(M,ν,sji), xi0, sji
+            ν ./= edge_normalization(M,ν,sji)    
             # Now we use the ν vector just calculated to extract the new μ.
             # We overwrite the μ in postition μ[:,:,:,:,l]
             update_μ!(M,ν,l,sij,sji,Paux)     
         end
-        # Now we take the population of μ and use it to extract marginals.
         for l = 1:N
-            xi0,sij,sji,d,oi = rand_disorder(M.γp,M.λp,M.residual,M.dilution)
+            # Now we take the population of μ and use it to extract marginals.
+            xi0,sij,sji,d,oi = rand_disorder(M.γp,M.λp,M.distribution,M.dilution)
             neighbours = rand(1:N,d)
-            calculate_belief!(M,l,neighbours,xi0,oi) 
+            zψi = calculate_belief!(M,l,neighbours,xi0,oi) 
+            Fψi += (0.5*d - 1) * log(zψi)
+            #@show d , log(zψi)
         end
+        F = (Fψi - 0.5 * F_itoj) / popsize(M) 
         avg_new, err_new = avg_err(M)
         if sum(abs.(avg_new .- avg_old) .<= (tol .+ 0.707106781186 .* (err_old .+ err_new))) == length(avg_new) 
-            return iterations
+            @show F_itoj /popsize(M), Fψi/popsize(M)
+            return F, iterations
         end
     end
-    return tot_iterations
+    return F, tot_iterations
     
 end
+
+function edge_normalization(M::Model,ν,sji)
+    tmp = sum(sum(ν,dims=1),dims=2)
+    norm = 0.0
+    T = M.T
+    for taui = 0:T+1
+        #norm += max(0,taui-sji) * tmp[0,0,taui,0] +  tmp[0,0,taui,1] + min(T+1,T-taui+sji+1) * tmp[0,0,taui,2]
+        norm += max(0,taui-sji) * tmp[0,0,taui,0] + (taui-sji >= 0) * tmp[0,0,taui,1] + (T+2 - max(taui-sji+1,0)) * tmp[0,0,taui,2]
+    end
+    #@show norm, sum(ν)
+    return norm
+end
+
 
 function avg_err(M::Model)
     N = popsize(M)
