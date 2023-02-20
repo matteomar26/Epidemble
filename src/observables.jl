@@ -129,7 +129,7 @@ end
 
 
 function inf_vs_dil_optimal(γ, λRange, N, T, degree_dist, fr , dilRange ; tot_iterations = 1 )
-    inf_out = zeros(length(λRange),length(dilRange), 4*T + 5) # 1 value for conv and 4(T+1) values for the AUC,overlap,L1,MSE
+    inf_out = zeros(length(λRange),length(dilRange), 4*T + 6) # 2 value for conv and fe and 4(T+1) values for the AUC,overlap,L1,MSE
     Threads.@threads for (λcount,dilcount) in collect(product(1:length(λRange),1:length(dilRange)))
         λi = λp = λRange[λcount]
         dilution = dilRange[dilcount]
