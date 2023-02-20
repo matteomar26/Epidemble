@@ -278,7 +278,7 @@ function pop_dynamics(M::Model; tot_iterations = 5, tol = 1e-10)
         alpha /= (2 * popsize(M))
         F = (Fψi - alpha * F_itoj) / popsize(M)
         avg_new, err_new = avg_err(M)
-        if sum(abs.(avg_new .- avg_old) .<= (tol .+ 0.707106781186 .* (err_old .+ err_new))) == length(avg_new) 
+        if sum(abs.(avg_new .- avg_old) .<= (tol .+ 0.5 .* (err_old .+ err_new))) == length(avg_new) 
             return F, iterations
         end
     end
