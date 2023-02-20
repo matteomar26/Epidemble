@@ -103,16 +103,17 @@ end
 
 function save_values!(inf_out,marg,conv)
     marg2D = reshape(sum(marg,dims=3) ./ N, T+2,T+2)
-    inf_out[1] = conv #number of infected
+    inf_out[1] = conv[2] #number of iterations
     inf_out[2:T+2] .= avgAUC(marg)
     inf_out[T+3 : 2*T + 3] .= avgOverlap(marg)
     inf_out[2*T + 4 : 3*T + 4] .= L1(marg2D)
     inf_out[3*T + 5 : 4*T + 5] .= MSE(marg)
+    inf_out[4*T + 6] = conv[1] #free energy 
 end
 
 
 function inf_vs_dil_mism(γ, λRange, λp, N, T, degree_dist, fr , dilRange ; tot_iterations = 1 )
-    inf_out = zeros(length(λRange),length(dilRange), 4*T + 5) # 1 value for conv and 4(T+1) values for the AUC,overlap,L1,MSE
+    inf_out = zeros(length(λRange),length(dilRange), 4*T + 6) # 2 value for conv and Fe and 4(T+1) values for the AUC,overlap,L1,MSE
     Threads.@threads for (λcount,dilcount) in collect(product(1:length(λRange),1:length(dilRange)))
         λi = λRange[λcount]
         dilution = dilRange[dilcount]
