@@ -223,7 +223,7 @@ end
 residual(d::Poisson) = d #residual degree of poiss distribution is poisson with same param
 residual(d::Dirac) = Dirac(d.value - 1) #residual degree of rr distribution (delta) is a delta at previous vale
 residual(d::DiscreteNonParametric) = DiscreteNonParametric(support(d) .- 1, (probs(d) .* support(d)) / sum(probs(d) .* support(d)))
-
+residual(d::DiscreteUniform) = Dirac(0)
 function rand_disorder(γp, λp, dist, dilution)
     r = 1.0 / log(1-λp)
     sij = floor(Int,log(rand())*r) + 1
@@ -243,7 +243,7 @@ function pop_dynamics(M::Model; tot_iterations = 5, tol = 1e-10)
     #useful for later (the function a appears
     #  in the inferred time factor node)
     ν = fill(0.0, 0:T+1, 0:T+1, 0:T+1, 0:2)
-    F = 0 
+    F = zeros(tot_iterations) 
     for iterations = 1:tot_iterations
         avg_old, err_old = avg_err(M)
         F_itoj = 0.0
@@ -251,40 +251,44 @@ function pop_dynamics(M::Model; tot_iterations = 5, tol = 1e-10)
         for l = 1:N
             # Extraction of disorder: state of individual i: xi0, delays: sij and sji
             xi0,sij,sji,d_res,oi = rand_disorder(M.γp,M.λp,M.residual,M.dilution)
-            
+            #xi0,sij,sji,d,oi = rand_disorder(M.γp,M.λp,M.distribution,M.dilution)
+            #(d == 0 && continue) 
             # Initialization of ν=0
             ν .= 0.0
             neighbours = rand(1:N,d_res)
-            
+            #neighbours = rand(1:N,d - 1)
             #Beginning of calculations: we start by calculating the un-normalized ν: 
             calculate_ν!(ν,M,neighbours,xi0,oi)
             
             #from the un-normalized ν message it is possible to extract the orginal-message normalization z_i→j 
             # needed for the computation of the Bethe Free energy
-            F_itoj += (d_res+1) * log(edge_normalization(M,ν,sji))
-            #!(100- 0.01 < sum(ν) < 100 + 0.01) && 
-            #@show edge_normalization(M,ν,sji)
+            F_itoj += log(edge_normalization(M,ν,sji))
+            #@show d_res log(edge_normalization(M,ν,sji))
             #Now we can normalize ν
-            #@show edge_normalization(M,ν,sji), xi0, sji
             ν ./= edge_normalization(M,ν,sji)    
             # Now we use the ν vector just calculated to extract the new μ.
             # We overwrite the μ in postition μ[:,:,:,:,l]
             update_μ!(M,ν,l,sij,sji,Paux)     
         end
+        alpha = 0.0
         for l = 1:N
             # Now we take the population of μ and use it to extract marginals.
             xi0,sij,sji,d,oi = rand_disorder(M.γp,M.λp,M.distribution,M.dilution)
             neighbours = rand(1:N,d)
+            alpha += d
             zψi = calculate_belief!(M,l,neighbours,xi0,oi) 
-            Fψi += (0.5*d - 1) * log(zψi)
+            Fψi += (0.5 * d - 1) * log(zψi)
             #@show d , log(zψi)
         end
-        F = (Fψi - 0.5 * F_itoj) / popsize(M) 
+        alpha /= (2 * popsize(M))
+        F[iterations] = (Fψi - alpha * F_itoj) / popsize(M)
+        
+        @show F[iterations]
         avg_new, err_new = avg_err(M)
-        if sum(abs.(avg_new .- avg_old) .<= (tol .+ 0.707106781186 .* (err_old .+ err_new))) == length(avg_new) 
+        #=if sum(abs.(avg_new .- avg_old) .<= (tol .+ 0.707106781186 .* (err_old .+ err_new))) == length(avg_new) 
             @show F_itoj /popsize(M), Fψi/popsize(M)
             return F, iterations
-        end
+    end=#
     end
     return F, tot_iterations
     
@@ -310,4 +314,4 @@ function avg_err(M::Model)
     return avg_bel, err_bel
 end
 
-FatTail(support,k) = DiscreteNonParametric(support, normalize!(1 ./ support .^ k))
+FatTail(support,k) = DiscreteNonParametric(support, normalize!(1 ./ support .^ k, 1.0))
