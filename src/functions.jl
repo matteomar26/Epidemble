@@ -243,27 +243,24 @@ function pop_dynamics(M::Model; tot_iterations = 5, tol = 1e-10)
     #useful for later (the function a appears
     #  in the inferred time factor node)
     ν = fill(0.0, 0:T+1, 0:T+1, 0:T+1, 0:2)
-    F = zeros(tot_iterations) 
+    Fnew = 0.0
     for iterations = 1:tot_iterations
+        Fold = Fnew
         avg_old, err_old = avg_err(M)
         F_itoj = 0.0
         Fψi = 0.0
         for l = 1:N
             # Extraction of disorder: state of individual i: xi0, delays: sij and sji
             xi0,sij,sji,d_res,oi = rand_disorder(M.γp,M.λp,M.residual,M.dilution)
-            #xi0,sij,sji,d,oi = rand_disorder(M.γp,M.λp,M.distribution,M.dilution)
-            #(d == 0 && continue) 
             # Initialization of ν=0
             ν .= 0.0
             neighbours = rand(1:N,d_res)
-            #neighbours = rand(1:N,d - 1)
             #Beginning of calculations: we start by calculating the un-normalized ν: 
             calculate_ν!(ν,M,neighbours,xi0,oi)
             
             #from the un-normalized ν message it is possible to extract the orginal-message normalization z_i→j 
             # needed for the computation of the Bethe Free energy
             F_itoj += log(edge_normalization(M,ν,sji))
-            #@show d_res log(edge_normalization(M,ν,sji))
             #Now we can normalize ν
             ν ./= edge_normalization(M,ν,sji)    
             # Now we use the ν vector just calculated to extract the new μ.
@@ -278,17 +275,13 @@ function pop_dynamics(M::Model; tot_iterations = 5, tol = 1e-10)
             alpha += d
             zψi = calculate_belief!(M,l,neighbours,xi0,oi) 
             Fψi += (0.5 * d - 1) * log(zψi)
-            #@show d , log(zψi)
         end
         alpha /= (2 * popsize(M))
-        F[iterations] = (Fψi - alpha * F_itoj) / popsize(M)
-        
-        @show F[iterations]
+        F = (Fψi - alpha * F_itoj) / popsize(M)
         avg_new, err_new = avg_err(M)
-        #=if sum(abs.(avg_new .- avg_old) .<= (tol .+ 0.707106781186 .* (err_old .+ err_new))) == length(avg_new) 
-            @show F_itoj /popsize(M), Fψi/popsize(M)
-            return F, iterations
-    end=#
+       # if sum(abs.(avg_new .- avg_old) .<= (tol .+ 0.707106781186 .* (err_old .+ err_new))) == length(avg_new) 
+        #    return F, iterations
+        #end
     end
     return F, tot_iterations
     
