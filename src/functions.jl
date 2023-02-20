@@ -243,9 +243,8 @@ function pop_dynamics(M::Model; tot_iterations = 5, tol = 1e-10)
     #useful for later (the function a appears
     #  in the inferred time factor node)
     ν = fill(0.0, 0:T+1, 0:T+1, 0:T+1, 0:2)
-    Fnew = 0.0
+    F = 0.0
     for iterations = 1:tot_iterations
-        Fold = Fnew
         avg_old, err_old = avg_err(M)
         F_itoj = 0.0
         Fψi = 0.0
@@ -279,9 +278,9 @@ function pop_dynamics(M::Model; tot_iterations = 5, tol = 1e-10)
         alpha /= (2 * popsize(M))
         F = (Fψi - alpha * F_itoj) / popsize(M)
         avg_new, err_new = avg_err(M)
-       # if sum(abs.(avg_new .- avg_old) .<= (tol .+ 0.707106781186 .* (err_old .+ err_new))) == length(avg_new) 
-        #    return F, iterations
-        #end
+        if sum(abs.(avg_new .- avg_old) .<= (tol .+ 0.707106781186 .* (err_old .+ err_new))) == length(avg_new) 
+            return F/iterations, iterations
+        end
     end
     return F, tot_iterations
     
@@ -295,7 +294,6 @@ function edge_normalization(M::Model,ν,sji)
         #norm += max(0,taui-sji) * tmp[0,0,taui,0] +  tmp[0,0,taui,1] + min(T+1,T-taui+sji+1) * tmp[0,0,taui,2]
         norm += max(0,taui-sji) * tmp[0,0,taui,0] + (taui-sji >= 0) * tmp[0,0,taui,1] + (T+2 - max(taui-sji+1,0)) * tmp[0,0,taui,2]
     end
-    #@show norm, sum(ν)
     return norm
 end
 
