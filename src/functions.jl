@@ -236,59 +236,6 @@ function rand_disorder(γp, λp, dist, dilution)
     return xi0, sij, sji, d, oi
 end
 
-#=function pop_dynamics_old(M::Model; tot_iterations = 5, tol = 1e-10)
-    T = M.T
-    N = popsize(M)
-    Paux = fill(0.0, 0:1, 0:2)
-    #Precalculation of the function a := (1-λ)^{tθ(t)}, 
-    #useful for later (the function a appears
-    #  in the inferred time factor node)
-    ν = fill(0.0, 0:T+1, 0:T+1, 0:T+1, 0:2)
-    F = 0.0
-    for iterations = 1:tot_iterations
-        avg_old, err_old = avg_err(M)
-        F_itoj = 0.0
-        Fψi = 0.0
-        for l = 1:N
-            # Extraction of disorder: state of individual i: xi0, delays: sij and sji
-            xi0,sij,sji,d_res,oi = rand_disorder(M.γp,M.λp,M.residual,M.dilution)
-            # Initialization of ν=0
-            ν .= 0.0
-            neighbours = rand(1:N,d_res)
-            #Beginning of calculations: we start by calculating the un-normalized ν: 
-            calculate_ν!(ν,M,neighbours,xi0,oi)
-            
-            #from the un-normalized ν message it is possible to extract the orginal-message normalization z_i→j 
-            # needed for the computation of the Bethe Free energy
-            F_itoj += log(edge_normalization(M,ν,sji))
-            #Now we can normalize ν
-            ν ./= edge_normalization(M,ν,sji)    
-            # Now we use the ν vector just calculated to extract the new μ.
-            # We overwrite the μ in postition μ[:,:,:,:,l]
-            update_μ!(M,ν,l,sij,sji,Paux)     
-        end
-        alpha = 0.0
-        for l = 1:N
-            # Now we take the population of μ and use it to extract marginals.
-            xi0,sij,sji,d,oi = rand_disorder(M.γp,M.λp,M.distribution,M.dilution)
-            neighbours = rand(1:N,d)
-            alpha += d
-            zψi = calculate_belief!(M,l,neighbours,xi0,oi) 
-            Fψi += (0.5 * d - 1) * log(zψi)
-        end
-        alpha /= (2 * popsize(M))
-        F = (Fψi - alpha * F_itoj) / popsize(M)
-        avg_new, err_new = avg_err(M)
-        if sum(abs.(avg_new .- avg_old) .<= (tol .+ 0.5 .* (err_old .+ err_new))) == length(avg_new) 
-            return F, iterations
-        end
-    end
-    return F, tot_iterations
-    
-end=#
-
-
-
 function pop_dynamics(M::Model; tot_iterations = 5, tol = 1e-10)
     T = M.T
     N = popsize(M)
