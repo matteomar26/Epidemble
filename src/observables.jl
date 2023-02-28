@@ -128,6 +128,21 @@ end
 
 
 
+function inf_vs_dil_mismγ(λ, γRange, γp, N, T, degree_dist, fr , dilRange ; tot_iterations = 1 )
+    inf_out = zeros(length(γRange),length(dilRange), 4*T + 6) # 2 value for conv and Fe and 4(T+1) values for the AUC,overlap,L1,MSE
+    Threads.@threads for (γcount,dilcount) in collect(product(1:length(γRange),1:length(dilRange)))
+        γi = γRange[γcount]
+        dilution = dilRange[dilcount]
+        λi = λp = λ
+        M = Model(N = N, T = T, γp = γp, λp = λp, γi=γi, λi=λi, fr=fr, dilution=dilution, distribution=degree_dist) ;
+        conv = pop_dynamics(M, tot_iterations = tot_iterations)
+        marg = M.belief;
+        save_values!(@view(inf_out[γcount,dilcount,:]), marg, conv)
+    end
+    return inf_out
+end
+
+
 function inf_vs_dil_optimal(γ, λRange, N, T, degree_dist, fr , dilRange ; tot_iterations = 1 )
     inf_out = zeros(length(λRange),length(dilRange), 4*T + 6) # 2 value for conv and fe and 4(T+1) values for the AUC,overlap,L1,MSE
     Threads.@threads for (λcount,dilcount) in collect(product(1:length(λRange),1:length(dilRange)))
