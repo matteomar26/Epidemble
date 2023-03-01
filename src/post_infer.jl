@@ -4,7 +4,7 @@ struct Model{D,D2,M,M2,O,Taux}
     λp::Float64
     γi::Float64
     λi::Float64
-    Paux∂::Taux
+    Paux::Taux
     μ::M
     belief::M2
     fr::Float64

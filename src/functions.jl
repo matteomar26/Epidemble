@@ -2,8 +2,8 @@ using Distributions,UnPack,OffsetArrays
 
 
 popsize(M) = size(M.belief,3)
-
 obs(M, ti, τi, oi) = oi ? (((ti <= M.T) == (τi <= M.T)) ? 1.0 - M.fr : M.fr) : 1.0
+
 
 function calculate_ν!(ν,M,neighbours,xi0,oi)
     @unpack T,γi,Λ,μ = M
@@ -230,7 +230,7 @@ function pop_dynamics(M; tot_iterations = 5, tol = 1e-10)
                 ν ./= edge_normalization(M,ν,sji)    
                 # Now we use the ν vector just calculated to extract the new μ.
                 # We overwrite the μ in postition μ[:,:,:,:,l]
-                update_μ!(M,ν,e,sij,sji,Paux)  
+                update_μ!(M,ν,e,sij,sji)  
                 e = mod(e,N) + 1
             end
             zψi = calculate_belief!(M,l,neighbours,xi0,oi) 
