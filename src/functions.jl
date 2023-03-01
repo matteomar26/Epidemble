@@ -1,4 +1,4 @@
-using Distributions,UnPack, OffsetArrays
+using Distributions,UnPack,OffsetArrays
 
 struct Model{D,D2,M,M2,O}
     T::Int
