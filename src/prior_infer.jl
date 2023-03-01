@@ -1,20 +1,3 @@
-struct ParametricModel{D,D2,M,M1,M2,O}
-    T::Int
-    γp::Float64
-    λp::Float64
-    γi::Float64
-    λi::Float64
-    μ::M
-    ∂μ::M1
-    belief::M2
-    fr::Float64
-    dilution::Float64
-    distribution::D
-    residual::D2
-    Λ::O
-end
-
-
 function pop_dynamics_and_prior(M; tot_iterations = 5, tol = 1e-10, eta = 1e-2)
     T = M.T
     N = popsize(M)
