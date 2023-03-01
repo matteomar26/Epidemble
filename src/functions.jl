@@ -1,4 +1,3 @@
-
 using Distributions,UnPack, OffsetArrays
 
 struct Model{D,D2,M,M2,O}
@@ -8,6 +7,7 @@ struct Model{D,D2,M,M2,O}
     γi::Float64
     λi::Float64
     μ::M
+    ∂μ::M1
     belief::M2
     fr::Float64
     dilution::Float64
@@ -284,6 +284,8 @@ function pop_dynamics(M::Model; tot_iterations = 5, tol = 1e-10)
     end
     return F, tot_iterations   
 end
+
+
 
 
 
