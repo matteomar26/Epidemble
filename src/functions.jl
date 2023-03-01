@@ -7,7 +7,6 @@ struct Model{D,D2,M,M2,O}
     γi::Float64
     λi::Float64
     μ::M
-    ∂μ::M1
     belief::M2
     fr::Float64
     dilution::Float64
