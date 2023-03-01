@@ -1,28 +1,7 @@
 using Distributions,UnPack,OffsetArrays
 
-struct Model{D,D2,M,M2,O}
-    T::Int
-    γp::Float64
-    λp::Float64
-    γi::Float64
-    λi::Float64
-    μ::M
-    belief::M2
-    fr::Float64
-    dilution::Float64
-    distribution::D
-    residual::D2
-    Λ::O
-end
 
 popsize(M) = size(M.belief,3)
-
-function Model(; N, T, γp, λp, γi=γp, λi=λp, fr=0.0, dilution=0.0, distribution) 
-    μ = fill(1.0 / (6*(T+2)^2), 0:T+1, 0:1, 0:T+1, 0:2, 1:N)
-    belief = fill(0.0, 0:T+1, 0:T+1, N)
-    Λ = OffsetArray([t <= 0 ? 1.0 : (1-λi)^t for t = -T-2:T+1], -T-2:T+1)
-    Model(T, γp, λp, γi, λi, μ, belief, fr, dilution, distribution, residual(distribution), Λ)
-end
 
 obs(M, ti, τi, oi) = oi ? (((ti <= M.T) == (τi <= M.T)) ? 1.0 - M.fr : M.fr) : 1.0
 
@@ -182,48 +161,12 @@ end
 
 
 
-function update_μ!(M::Model,ν,l,sij,sji,P)
-    @unpack T,Λ,μ = M
-    μ[:,:,:,:,l] .= 0
-    # First we calculate and store the cumulated of ν with respect to 
-    # planted time, i.e. the third argument. We call Σ this cumulated 
-    Σ = cumsum(ν,dims=3)
-    @inbounds for tj = 0:T+1
-        for τj = 0:T+1
-            #First of all we set to 0 the function we want to update
-            #because later we want to sum over it
-            P .= 0.0
-            for ti = 0:T+1
-                #we pre calculate the value of the summed part
-                # so not to calculate it twice
-                Γ = Σ[ti,tj,min(τj+sji-1,T+1),2] - (τj-sij>=0)*Σ[ti,tj,max(τj-sij,0),2]+(τj+sji<=T+1)*ν[ti,tj,min(τj+sji,T+1),1]+
-                    Σ[ti,tj,T+1,0] - Σ[ti,tj,min(τj+sji,T+1),0]
-                for c = 0:1
-                    P[c,0] += Λ[tj-ti-c] * (τj-sij-1>=0) * Σ[ti,tj,max(τj-sij-1,0),2]
-                    P[c,1] += Λ[tj-ti-c] * (τj-sij>=0) * ν[ti,tj,max(τj-sij,0),2]
-                    P[c,2] += Λ[tj-ti-c] * Γ
-                end
-            end
-            μ[tj,:,τj,:,l] = P
-        end
-    end
-    S = sum(@view μ[:,:,:,:,l])
-    if S == 0.0
-        println("sum-zero μ  at $(M.λi), $(M.dilution)")
-        return
-    end   
-    if isnan(S)
-        println("NaN in μ")
-        return
-    end
-    #μ[:,:,:,:,l] ./= S; #in the original form the messages are not normalized, but 
-    #@show S
-end
 
 residual(d::Poisson) = d #residual degree of poiss distribution is poisson with same param
 residual(d::Dirac) = Dirac(d.value - 1) #residual degree of rr distribution (delta) is a delta at previous vale
 residual(d::DiscreteNonParametric) = DiscreteNonParametric(support(d) .- 1, (probs(d) .* support(d)) / sum(probs(d) .* support(d)))
 residual(d::DiscreteUniform) = Dirac(0)
+
 function rand_disorder(γp, λp, dist, dilution)
     r = 1.0 / log(1-λp)
     sij = floor(Int,log(rand())*r) + 1
@@ -235,13 +178,31 @@ function rand_disorder(γp, λp, dist, dilution)
     return xi0, sij, sji, d, oi
 end
 
-function pop_dynamics(M::Model; tot_iterations = 5, tol = 1e-10)
+
+function edge_normalization(M,ν,sji)
+    tmp = sum(sum(ν,dims=1),dims=2)
+    norm = 0.0
+    T = M.T
+    for taui = 0:T+1
+        #norm += max(0,taui-sji) * tmp[0,0,taui,0] +  tmp[0,0,taui,1] + min(T+1,T-taui+sji+1) * tmp[0,0,taui,2]
+        norm += max(0,taui-sji) * tmp[0,0,taui,0] + (taui-sji >= 0) * tmp[0,0,taui,1] + (T+2 - max(taui-sji+1,0)) * tmp[0,0,taui,2]
+    end
+    return norm
+end
+
+
+function avg_err(M)
+    N = popsize(M)
+    avg_bel = reshape(sum(sum(M.belief,dims=2),dims=3) ./ (N*(M.T+2)),M.T+2) 
+    err_bel = sqrt.(reshape(sum(sum(M.belief .^ 2,dims=2),dims=3) ./ (N * (M.T+2)),M.T+2) .- (avg_bel .^ 2)) ./ sqrt(popsize(M))
+    return avg_bel, err_bel
+end
+
+FatTail(support,k) = DiscreteNonParametric(support, normalize!(1 ./ support .^ k, 1.0))
+
+function pop_dynamics(M; tot_iterations = 5, tol = 1e-10)
     T = M.T
     N = popsize(M)
-    Paux = fill(0.0, 0:1, 0:2)
-    #Precalculation of the function a := (1-λ)^{tθ(t)}, 
-    #useful for later (the function a appears
-    #  in the inferred time factor node)
     ν = fill(0.0, 0:T+1, 0:T+1, 0:T+1, 0:2)
     F = 0.0
     for iterations = 1:tot_iterations
@@ -284,27 +245,3 @@ function pop_dynamics(M::Model; tot_iterations = 5, tol = 1e-10)
     return F, tot_iterations   
 end
 
-
-
-
-
-function edge_normalization(M,ν,sji)
-    tmp = sum(sum(ν,dims=1),dims=2)
-    norm = 0.0
-    T = M.T
-    for taui = 0:T+1
-        #norm += max(0,taui-sji) * tmp[0,0,taui,0] +  tmp[0,0,taui,1] + min(T+1,T-taui+sji+1) * tmp[0,0,taui,2]
-        norm += max(0,taui-sji) * tmp[0,0,taui,0] + (taui-sji >= 0) * tmp[0,0,taui,1] + (T+2 - max(taui-sji+1,0)) * tmp[0,0,taui,2]
-    end
-    return norm
-end
-
-
-function avg_err(M)
-    N = popsize(M)
-    avg_bel = reshape(sum(sum(M.belief,dims=2),dims=3) ./ (N*(M.T+2)),M.T+2) 
-    err_bel = sqrt.(reshape(sum(sum(M.belief .^ 2,dims=2),dims=3) ./ (N * (M.T+2)),M.T+2) .- (avg_bel .^ 2)) ./ sqrt(popsize(M))
-    return avg_bel, err_bel
-end
-
-FatTail(support,k) = DiscreteNonParametric(support, normalize!(1 ./ support .^ k, 1.0))
