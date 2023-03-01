@@ -16,7 +16,7 @@ struct Model{D,D2,M,M2,O}
     Λ::O
 end
 
-popsize(M::Model) = size(M.belief,3)
+popsize(M) = size(M.belief,3)
 
 function Model(; N, T, γp, λp, γi=γp, λi=λp, fr=0.0, dilution=0.0, distribution) 
     μ = fill(1.0 / (6*(T+2)^2), 0:T+1, 0:1, 0:T+1, 0:2, 1:N)
@@ -25,9 +25,9 @@ function Model(; N, T, γp, λp, γi=γp, λi=λp, fr=0.0, dilution=0.0, distrib
     Model(T, γp, λp, γi, λi, μ, belief, fr, dilution, distribution, residual(distribution), Λ)
 end
 
-obs(M::Model, ti, τi, oi) = oi ? (((ti <= M.T) == (τi <= M.T)) ? 1.0 - M.fr : M.fr) : 1.0
+obs(M, ti, τi, oi) = oi ? (((ti <= M.T) == (τi <= M.T)) ? 1.0 - M.fr : M.fr) : 1.0
 
-function calculate_ν!(ν,M::Model,neighbours,xi0,oi)
+function calculate_ν!(ν,M,neighbours,xi0,oi)
     @unpack T,γi,Λ,μ = M
     if xi0 == 0
         for τi = 1:T+1
@@ -105,7 +105,7 @@ function calculate_ν!(ν,M::Model,neighbours,xi0,oi)
 end
 
 
-function calculate_belief!(M::Model,l,neighbours,xi0,oi) 
+function calculate_belief!(M,l,neighbours,xi0,oi) 
     @unpack T, belief, γi, μ = M
     belief[:,:,l] .= 0
     if xi0 == 0
@@ -183,7 +183,7 @@ end
 
 
 
-function update_μ!(M,ν,l,sij,sji,P)
+function update_μ!(M::Model,ν,l,sij,sji,P)
     @unpack T,Λ,μ = M
     μ[:,:,:,:,l] .= 0
     # First we calculate and store the cumulated of ν with respect to 
@@ -289,7 +289,7 @@ end
 
 
 
-function edge_normalization(M::Model,ν,sji)
+function edge_normalization(M,ν,sji)
     tmp = sum(sum(ν,dims=1),dims=2)
     norm = 0.0
     T = M.T
@@ -301,7 +301,7 @@ function edge_normalization(M::Model,ν,sji)
 end
 
 
-function avg_err(M::Model)
+function avg_err(M)
     N = popsize(M)
     avg_bel = reshape(sum(sum(M.belief,dims=2),dims=3) ./ (N*(M.T+2)),M.T+2) 
     err_bel = sqrt.(reshape(sum(sum(M.belief .^ 2,dims=2),dims=3) ./ (N * (M.T+2)),M.T+2) .- (avg_bel .^ 2)) ./ sqrt(popsize(M))
