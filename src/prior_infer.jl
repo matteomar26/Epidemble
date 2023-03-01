@@ -1,7 +1,34 @@
-function pop_dynamics_and_prior(M; tot_iterations = 5, tol = 1e-10, eta = 1e-2)
+struct ParametricModel{D,D2,M,M1,M2,O}
+    T::Int
+    γp::Float64
+    λp::Float64
+    γi::Float64
+    λi::Float64
+    μ::M
+    ∂μ::M1
+    belief::M2
+    fr::Float64
+    dilution::Float64
+    distribution::D
+    residual::D2
+    Λ::O
+    ∂Λ::O
+end
+
+function ParametricModel(; N, T, γp, λp, γi=γp, λi=λp, fr=0.0, dilution=0.0, distribution) 
+    ∂μ = fill(1.0 / (6*(T+2)^2), 0:T+1, 0:1, 0:T+1, 0:2, 1:N)
+    μ = fill(1.0 / (6*(T+2)^2), 0:T+1, 0:1, 0:T+1, 0:2, 1:N)
+    belief = fill(0.0, 0:T+1, 0:T+1, N)
+    ∂Λ = OffsetArray([t <= 0 ? 0.0 : t * ((1-λi)^(t-1)) for t = -T-2:T+1], -T-2:T+1)
+    Λ = OffsetArray([t <= 0 ? 1.0 : (1-λi)^t for t = -T-2:T+1], -T-2:T+1)
+    Model(T, γp, λp, γi, λi, μ, ∂μ, belief, fr, dilution, distribution, residual(distribution), Λ, ∂Λ)
+end
+
+function pop_dynamics(M::ParametricModel; tot_iterations = 5, tol = 1e-10, eta = 1e-2)
     T = M.T
     N = popsize(M)
     Paux = fill(0.0, 0:1, 0:2)
+    Paux∂ = fill(0.0, 0:1, 0:2)
     #Precalculation of the function a := (1-λ)^{tθ(t)}, 
     #useful for later (the function a appears
     #  in the inferred time factor node)
@@ -32,7 +59,7 @@ function pop_dynamics_and_prior(M; tot_iterations = 5, tol = 1e-10, eta = 1e-2)
                 ν ./= edge_normalization(M,ν,sji)    
                 # Now we use the ν vector just calculated to extract the new μ.
                 # We overwrite the μ in postition μ[:,:,:,:,l]
-                update_μ!(M,ν,e,sij,sji,Paux)  
+                update_μ!(M,ν,l,sij,sji,Paux,Paux∂) 
                 e = mod(e,N) + 1
             end
             zψi = calculate_belief!(M,l,neighbours,xi0,oi) 
@@ -48,17 +75,18 @@ function pop_dynamics_and_prior(M; tot_iterations = 5, tol = 1e-10, eta = 1e-2)
 end
 
 
-function update_∂μ!(M,ν,l,sij,sji,P)
-    @unpack T,Λ,μ = M
+function update_μ!(M::ParametricModel,ν,l,sij,sji,P,P∂)
+    @unpack T,Λ,∂Λ,μ,∂μ = M
+    ∂μ[:,:,:,:,l] .= 0
     μ[:,:,:,:,l] .= 0
     # First we calculate and store the cumulated of ν with respect to 
     # planted time, i.e. the third argument. We call Σ this cumulated 
-    Σ = cumsum(ν,dims=3)
-    @inbounds for tj = 0:T+1
+    for tj = 0:T+1
         for τj = 0:T+1
             #First of all we set to 0 the function we want to update
             #because later we want to sum over it
             P .= 0.0
+            P∂ .= 0.0
             for ti = 0:T+1
                 #we pre calculate the value of the summed part
                 # so not to calculate it twice
@@ -68,9 +96,14 @@ function update_∂μ!(M,ν,l,sij,sji,P)
                     P[c,0] += Λ[tj-ti-c] * (τj-sij-1>=0) * Σ[ti,tj,max(τj-sij-1,0),2]
                     P[c,1] += Λ[tj-ti-c] * (τj-sij>=0) * ν[ti,tj,max(τj-sij,0),2]
                     P[c,2] += Λ[tj-ti-c] * Γ
+                    P∂[c,0] += ∂Λ[tj-ti-c] * (τj-sij-1>=0) * Σ[ti,tj,max(τj-sij-1,0),2]
+                    P∂[c,1] += ∂Λ[tj-ti-c] * (τj-sij>=0) * ν[ti,tj,max(τj-sij,0),2]
+                    P∂[c,2] += ∂Λ[tj-ti-c] * Γ
+                    
                 end
             end
             μ[tj,:,τj,:,l] = P
+            ∂μ[tj,:,τj,:,l] = P∂
         end
     end
     S = sum(@view μ[:,:,:,:,l])
