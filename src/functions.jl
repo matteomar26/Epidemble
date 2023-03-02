@@ -7,6 +7,7 @@ obs(M, ti, τi, oi) = oi ? (((ti <= M.T) == (τi <= M.T)) ? 1.0 - M.fr : M.fr) :
 
 function calculate_ν!(M,neighbours,xi0,oi)
     @unpack T,γi,Λ,μ,ν = M
+    ν .= 0.0
     if xi0 == 0
         for τi = 1:T+1
             for ti = 0:T+1
@@ -203,8 +204,7 @@ FatTail(support,k) = DiscreteNonParametric(support, normalize!(1 ./ support .^ k
 function pop_dynamics(M; tot_iterations = 5, tol = 1e-10)
     T = M.T
     N = popsize(M)
-    F = 0.0
-    ∂F = 0.0
+    F, ∂F = 0.0, 0.0
     for iterations = 1:tot_iterations
         avg_old, err_old = avg_err(M)
         F_itoj = 0.0
@@ -216,20 +216,20 @@ function pop_dynamics(M; tot_iterations = 5, tol = 1e-10)
             neighbours = rand(1:N,d)
             for m = 1:d
                 res_neigh = [neighbours[1:m-1];neighbours[m+1:end]]
-                ν .= 0.0
-                calculate_ν!(ν,M,res_neigh,xi0,oi)
+                calculate_ν!(M,res_neigh,xi0,oi)
                 #from the un-normalized ν message it is possible to extract the orginal-message 
                 #normalization z_i→j 
                 # needed for the computation of the Bethe Free energy
                 r = 1.0 / log(1-M.λp)
                 sji = floor(Int,log(rand())*r) + 1
                 sij = floor(Int,log(rand())*r) + 1
-                F_itoj += log(edge_normalization(M,ν,sji))
+                normν = edge_normalization(M,M.ν,sji)
+                F_itoj += log(normν)
                 #Now we can normalize ν
-                ν ./= edge_normalization(M,ν,sji)    
+                M.ν ./= normν    
                 # Now we use the ν vector just calculated to extract the new μ.
                 # We overwrite the μ in postition μ[:,:,:,:,l]
-                update_μ!(M,ν,e,sij,sji)  
+                update_μ!(M,e,sij,sji)  
                 e = mod(e,N) + 1
             end
             zψi = calculate_belief!(M,l,neighbours,xi0,oi)
