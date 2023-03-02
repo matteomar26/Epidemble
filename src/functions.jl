@@ -5,8 +5,8 @@ popsize(M) = size(M.belief,3)
 obs(M, ti, τi, oi) = oi ? (((ti <= M.T) == (τi <= M.T)) ? 1.0 - M.fr : M.fr) : 1.0
 
 
-function calculate_ν!(ν,M,neighbours,xi0,oi)
-    @unpack T,γi,Λ,μ = M
+function calculate_ν!(M,neighbours,xi0,oi)
+    @unpack T,γi,Λ,μ,ν = M
     if xi0 == 0
         for τi = 1:T+1
             for ti = 0:T+1
@@ -203,13 +203,12 @@ FatTail(support,k) = DiscreteNonParametric(support, normalize!(1 ./ support .^ k
 function pop_dynamics(M; tot_iterations = 5, tol = 1e-10)
     T = M.T
     N = popsize(M)
-    ν = fill(0.0, 0:T+1, 0:T+1, 0:T+1, 0:2)
     F = 0.0
+    ∂F = 0.0
     for iterations = 1:tot_iterations
         avg_old, err_old = avg_err(M)
         F_itoj = 0.0
         Fψi = 0.0
-        alpha = 0.0
         e = 1 #edge counter
         for l = 1:N
             # Extraction of disorder: state of individual i: xi0, delays: sij and sji
@@ -233,7 +232,8 @@ function pop_dynamics(M; tot_iterations = 5, tol = 1e-10)
                 update_μ!(M,ν,e,sij,sji)  
                 e = mod(e,N) + 1
             end
-            zψi = calculate_belief!(M,l,neighbours,xi0,oi) 
+            zψi = calculate_belief!(M,l,neighbours,xi0,oi)
+            
             Fψi += (0.5 * d - 1) * log(zψi)   
         end
         F = (Fψi - 0.5 * F_itoj) / popsize(M)
