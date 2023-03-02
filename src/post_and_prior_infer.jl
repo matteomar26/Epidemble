@@ -143,7 +143,7 @@ function compute_∂zψi(M::ParametricModel,l,neighbours,xi0,oi)
     return ∂zψi 
 end
 
-function compute_∂zψij(M::ParametricModel,neighbours,xi0,oi)
+function compute_∂zψij(M::ParametricModel,neighbours,xi0,oi,sji)
     @unpack T,γi,Λ,μ,∂μ,∂ν = M
     ∂zψij = 0.0
     if xi0 == 0
@@ -231,12 +231,13 @@ function compute_∂zψij(M::ParametricModel,neighbours,xi0,oi)
             end
         end
     end
-    if any(isnan,ν)
-        println("NaN in ν  at $(M.λi), $(M.dilution)")
+    if any(isnan,∂ν)
+        println("NaN in ∂ν  at $(M.λi), $(M.dilution)")
         return
     end
-    if sum(ν) == 0
-        println("sum-zero ν at $(M.λi), $(M.dilution), $(popsize(M)), $(M.fr)")
+    if sum(∂ν) == 0
+        println("sum-zero ∂ν at $(M.λi), $(M.dilution), $(popsize(M)), $(M.fr)")
         return
-    end        
+    end  
+    return edge_normalization(M,∂ν,sji)
 end
