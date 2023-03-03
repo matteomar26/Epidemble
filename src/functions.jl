@@ -207,8 +207,8 @@ function pop_dynamics(M; tot_iterations = 5, tol = 1e-10)
     F, ∂F = 0.0, 0.0
     for iterations = 1:tot_iterations
         avg_old, err_old = avg_err(M)
-        F_itoj = 0.0
-        Fψi = 0.0
+        F_itoj, ∂F_itoj = 0.0, 0.0
+        Fψi, ∂Fψi = 0.0, 0.0
         e = 1 #edge counter
         for l = 1:N
             # Extraction of disorder: state of individual i: xi0, delays: sij and sji
@@ -225,6 +225,7 @@ function pop_dynamics(M; tot_iterations = 5, tol = 1e-10)
                 sij = floor(Int,log(rand())*r) + 1
                 normν = edge_normalization(M,M.ν,sji)
                 F_itoj += log(normν)
+                ∂F_itoj += ∂zψij(M,res_neigh,xi0,oi,sji)/normν
                 #Now we can normalize ν
                 M.ν ./= normν    
                 # Now we use the ν vector just calculated to extract the new μ.
@@ -232,14 +233,17 @@ function pop_dynamics(M; tot_iterations = 5, tol = 1e-10)
                 update_μ!(M,e,sij,sji)  
                 e = mod(e,N) + 1
             end
-            zψi = calculate_belief!(M,l,neighbours,xi0,oi)            
+            zψi = calculate_belief!(M,l,neighbours,xi0,oi)
             Fψi += (0.5 * d - 1) * log(zψi)   
+            ∂Fψi += (0.5 * d - 1) * ∂zψi(M,l,neighbours,xi0,oi)/zψi 
         end
         F = (Fψi - 0.5 * F_itoj) / popsize(M)
+        ∂F = (∂Fψi - 0.5 * ∂F_itoj) / popsize(M)
         avg_new, err_new = avg_err(M)
         if sum(abs.(avg_new .- avg_old) .<= (tol .+ 0.3 .* (err_old .+ err_new))) == length(avg_new) 
             return F, iterations
         end
+        update_params!(M,∂F)
     end
     return F, tot_iterations   
 end

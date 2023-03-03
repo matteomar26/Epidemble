@@ -61,3 +61,9 @@ function update_μ!(M::Model,l,sij,sji)
     #μ[:,:,:,:,l] ./= S; #in the original form the messages are not normalized, but 
     #@show S
 end
+
+
+∂zψij(M::Model,res_neigh,xi0,oi,sji) = 0.0
+∂zψi(M::Model,l,neighbours,xi0,oi) = 0.0
+function update_params!(M::Model,∂F)
+end
