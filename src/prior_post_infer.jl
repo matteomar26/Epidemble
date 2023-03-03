@@ -32,10 +32,11 @@ function ParametricModel(; N, T, γp, λp, γi=γp, λi=λp, fr=0.0, dilution=0.
     ParametricModel(T, γp, λp,γi, λi,Paux, Paux∂, μ, ∂μ, belief, ν,∂ν, fr, dilution, distribution, residual(distribution), Λ, ∂Λ)
 end
 
-function update_μ!(M::ParametricModel,ν,l,sij,sji)
-    @unpack T,Λ,∂Λ,μ,∂μ,Paux,Paux∂ = M
+function update_μ!(M::ParametricModel,l,sij,sji)
+    @unpack T,Λ,∂Λ,μ,∂μ,Paux,Paux∂,ν = M
     ∂μ[:,:,:,:,l] .= 0
     μ[:,:,:,:,l] .= 0
+    Σ = cumsum(ν,dims=3)
     # First we calculate and store the cumulated of ν with respect to 
     # planted time, i.e. the third argument. We call Σ this cumulated 
     for tj = 0:T+1
