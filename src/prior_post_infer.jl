@@ -1,8 +1,9 @@
-struct ParametricModel{D,D2,Taux,M,M1,M2,O}
+mutable struct ParametricModel{D,D2,Taux,M,M1,M2,O}
     T::Int
     γp::Float64
     λp::Float64
-    infer_params::Vector{Float64}
+    γi::Float64
+    λi::Float64
     Paux::Taux
     Paux∂::Taux
     μ::M
@@ -28,7 +29,7 @@ function ParametricModel(; N, T, γp, λp, γi=γp, λi=λp, fr=0.0, dilution=0.
     Paux∂ = fill(0.0, 0:1, 0:2)
     ∂Λ = OffsetArray([t <= 0 ? 0.0 : t * ((1-λi)^(t-1)) for t = -T-2:T+1], -T-2:T+1)
     Λ = OffsetArray([t <= 0 ? 1.0 : (1-λi)^t for t = -T-2:T+1], -T-2:T+1)
-    Model(T, γp, λp,[γi, λi],Paux, Paux∂, μ, ∂μ, belief, ν,∂ν, fr, dilution, distribution, residual(distribution), Λ, ∂Λ)
+    ParametricModel(T, γp, λp,γi, λi,Paux, Paux∂, μ, ∂μ, belief, ν,∂ν, fr, dilution, distribution, residual(distribution), Λ, ∂Λ)
 end
 
 function update_μ!(M::ParametricModel,ν,l,sij,sji)
