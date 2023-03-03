@@ -232,8 +232,7 @@ function pop_dynamics(M; tot_iterations = 5, tol = 1e-10)
                 update_μ!(M,e,sij,sji)  
                 e = mod(e,N) + 1
             end
-            zψi = calculate_belief!(M,l,neighbours,xi0,oi)
-            
+            zψi = calculate_belief!(M,l,neighbours,xi0,oi)            
             Fψi += (0.5 * d - 1) * log(zψi)   
         end
         F = (Fψi - 0.5 * F_itoj) / popsize(M)
