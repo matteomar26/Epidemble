@@ -17,9 +17,11 @@ mutable struct ParametricModel{D,D2,Taux,M,M1,M2,O}
     residual::D2
     Λ::O
     ∂Λ::O
+    eta::Float64
 end
 
-function ParametricModel(; N, T, γp, λp, γi=γp, λi=λp, fr=0.0, dilution=0.0, distribution) 
+function ParametricModel(; N, T, γp, λp, γi=γp, λi=λp, fr=0.0, dilution=0.0, distribution)
+    eta = 1e-3
     ∂μ = fill(1.0 / (6*(T+2)^2), 0:T+1, 0:1, 0:T+1, 0:2, 1:N)
     μ = fill(1.0 / (6*(T+2)^2), 0:T+1, 0:1, 0:T+1, 0:2, 1:N)
     belief = fill(0.0, 0:T+1, 0:T+1, N)
@@ -29,7 +31,7 @@ function ParametricModel(; N, T, γp, λp, γi=γp, λi=λp, fr=0.0, dilution=0.
     Paux∂ = fill(0.0, 0:1, 0:2)
     ∂Λ = OffsetArray([t <= 0 ? 0.0 : t * ((1-λi)^(t-1)) for t = -T-2:T+1], -T-2:T+1)
     Λ = OffsetArray([t <= 0 ? 1.0 : (1-λi)^t for t = -T-2:T+1], -T-2:T+1)
-    ParametricModel(T, γp, λp,γi, λi,Paux, Paux∂, μ, ∂μ, belief, ν,∂ν, fr, dilution, distribution, residual(distribution), Λ, ∂Λ)
+    ParametricModel(T, γp, λp,γi, λi,Paux, Paux∂, μ, ∂μ, belief, ν,∂ν, fr, dilution, distribution, residual(distribution), Λ, ∂Λ, eta)
 end
 
 function update_μ!(M::ParametricModel,l,sij,sji)
@@ -77,7 +79,7 @@ function update_μ!(M::ParametricModel,l,sij,sji)
 end
 
 
-function compute_∂zψi(M::ParametricModel,l,neighbours,xi0,oi) 
+function ∂zψi(M::ParametricModel,l,neighbours,xi0,oi) 
     @unpack T, γi, μ, ∂μ = M
     ∂zψi = 0.0
     if xi0 == 0
@@ -145,8 +147,8 @@ function compute_∂zψi(M::ParametricModel,l,neighbours,xi0,oi)
     return ∂zψi 
 end
 
-function compute_∂zψij(M::ParametricModel,neighbours,xi0,oi,sji)
-    @unpack T,γi,Λ,μ,∂μ,∂ν = M
+function ∂zψij(M::ParametricModel,neighbours,xi0,oi,sji)
+    @unpack T,γi,Λ,∂Λ,μ,∂μ,∂ν = M
     ∂zψij = 0.0
     if xi0 == 0
         for τi = 1:T+1
@@ -242,4 +244,11 @@ function compute_∂zψij(M::ParametricModel,neighbours,xi0,oi,sji)
         return
     end  
     return edge_normalization(M,∂ν,sji)
+end
+
+function update_params!(M::ParametricModel,∂F)
+    @unpack T,Λ,∂Λ,λi,eta = M
+    M.λi .-= eta * ∂F
+    ∂Λ = OffsetArray([t <= 0 ? 0.0 : t * ((1-λi)^(t-1)) for t = -T-2:T+1], -T-2:T+1)
+    Λ = OffsetArray([t <= 0 ? 1.0 : (1-λi)^t for t = -T-2:T+1], -T-2:T+1)
 end
