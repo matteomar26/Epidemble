@@ -205,7 +205,7 @@ function pop_dynamics(M; tot_iterations = 5, tol = 1e-10)
     T = M.T
     N = popsize(M)
     F, ∂F = 0.0, 0.0
-    for iterations = 1:tot_iterations
+    @showprogress for iterations = 1:tot_iterations
         avg_old, err_old = avg_err(M)
         F_itoj, ∂F_itoj = 0.0, 0.0
         Fψi, ∂Fψi = 0.0, 0.0
@@ -240,9 +240,9 @@ function pop_dynamics(M; tot_iterations = 5, tol = 1e-10)
         F = (Fψi - 0.5 * F_itoj) / popsize(M)
         ∂F = (∂Fψi - 0.5 * ∂F_itoj) / popsize(M)
         avg_new, err_new = avg_err(M)
-        if sum(abs.(avg_new .- avg_old) .<= (tol .+ 0.3 .* (err_old .+ err_new))) == length(avg_new) 
-            return F, iterations
-        end
+        #if sum(abs.(avg_new .- avg_old) .<= (tol .+ 0.3 .* (err_old .+ err_new))) == length(avg_new) 
+         #   return F, iterations
+        #end
         update_params!(M,∂F)
     end
     return F, tot_iterations   

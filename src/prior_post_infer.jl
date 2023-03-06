@@ -20,8 +20,7 @@ mutable struct ParametricModel{D,D2,Taux,M,M1,M2,O}
     eta::Float64
 end
 
-function ParametricModel(; N, T, γp, λp, γi=γp, λi=λp, fr=0.0, dilution=0.0, distribution)
-    eta = 1e-3
+function ParametricModel(; N, T, γp, λp, γi=γp, λi=λp, fr=0.0, dilution=0.0, distribution, eta=1e-2)
     ∂μ = fill(1.0 / (6*(T+2)^2), 0:T+1, 0:1, 0:T+1, 0:2, 1:N)
     μ = fill(1.0 / (6*(T+2)^2), 0:T+1, 0:1, 0:T+1, 0:2, 1:N)
     belief = fill(0.0, 0:T+1, 0:T+1, N)
@@ -146,6 +145,7 @@ end
 
 function ∂zψij(M::ParametricModel,neighbours,xi0,oi,sji)
     @unpack T,γi,Λ,∂Λ,μ,∂μ,∂ν = M
+    ∂ν .= 0.0
     if xi0 == 0
         for τi = 1:T+1
             for ti = 0:T+1
@@ -208,12 +208,12 @@ function ∂zψij(M::ParametricModel,neighbours,xi0,oi,sji)
                 seed = (ti==0 ? γi : (1-γi) )
                 phi = (ti==0 || ti==T+1) ? 0 : 1
                 
+                #First part of Leibniz rule
                 m1, m2 = 1.0, 1.0
                 for k in neighbours                
                     m1 *= μ[ti,1,0,0,k] + μ[ti,1,0,1,k] + μ[ti,1,0,2,k]
                     m2 *= μ[ti,0,0,0,k] + μ[ti,0,0,1,k] + μ[ti,0,0,2,k]
                 end
-                #First part of Leibniz rule
                 ∂ν[ti,tj,0,:] .= ξ * seed * (∂Λ[ti-1-tj] * m1 - phi * ∂Λ[ti-tj] * m2)
                 m1, m2 = 0.0, 0.0
                 for j in neighbours
@@ -244,7 +244,7 @@ end
 
 function update_params!(M::ParametricModel,∂F)
     @unpack T,Λ,∂Λ,λi,eta = M
-    #@show ∂F
+    @show ∂F
     M.λi -= eta * ∂F
     ∂Λ = OffsetArray([t <= 0 ? 0.0 : t * ((1-λi)^(t-1)) for t = -T-2:T+1], -T-2:T+1)
     Λ = OffsetArray([t <= 0 ? 1.0 : (1-λi)^t for t = -T-2:T+1], -T-2:T+1)
