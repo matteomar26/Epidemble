@@ -81,7 +81,7 @@ end
 
 function ∂zψi(M::ParametricModel,l,neighbours,xi0,oi) 
     @unpack T, γi, μ, ∂μ = M
-    ∂zψi = 0.0
+    ∂z = 0.0
     if xi0 == 0
         for τi = 1:T+1
             for ti = 0:T+1
@@ -109,7 +109,7 @@ function ∂zψi(M::ParametricModel,l,neighbours,xi0,oi)
                     m3 += m3∂
                     m4 += m4∂
                 end
-                ∂zψi += ξ  * seed * ( m1 - phi * m2) + ξ * (τi<T+1) * seed * (phi *  m4 -  m3)
+                ∂z += ξ  * seed * ( m1 - phi * m2) + ξ * (τi<T+1) * seed * (phi *  m4 -  m3)
             end
         end
     else
@@ -135,21 +135,17 @@ function ∂zψi(M::ParametricModel,l,neighbours,xi0,oi)
                     m1∂ *= μ[ti,1,0,0,k] + μ[ti,1,0,1,k] + μ[ti,1,0,2,k]
                     m2∂ *= μ[ti,0,0,0,k] + μ[ti,0,0,1,k] + μ[ti,0,0,2,k]
                 end
+                m1 += m1∂ 
+                m2 += m2∂
             end
-            #We calculate ν in the zero patient case
-            ∂zψi += ξ * seed * ( m1 - phi *  m2)
+            ∂z += ξ * seed * ( m1 - phi *  m2)
         end
     end    
-    if ∂zψi == 0
-        println("sum-zero partial deriv. belief  at $(M.λi), $(M.dilution)")
-        return
-    end    
-    return ∂zψi 
+    return ∂z 
 end
 
 function ∂zψij(M::ParametricModel,neighbours,xi0,oi,sji)
     @unpack T,γi,Λ,∂Λ,μ,∂μ,∂ν = M
-    ∂zψij = 0.0
     if xi0 == 0
         for τi = 1:T+1
             for ti = 0:T+1
@@ -248,7 +244,8 @@ end
 
 function update_params!(M::ParametricModel,∂F)
     @unpack T,Λ,∂Λ,λi,eta = M
-    M.λi .-= eta * ∂F
+    #@show ∂F
+    M.λi -= eta * ∂F
     ∂Λ = OffsetArray([t <= 0 ? 0.0 : t * ((1-λi)^(t-1)) for t = -T-2:T+1], -T-2:T+1)
     Λ = OffsetArray([t <= 0 ? 1.0 : (1-λi)^t for t = -T-2:T+1], -T-2:T+1)
 end
