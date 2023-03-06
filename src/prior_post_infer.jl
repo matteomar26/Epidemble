@@ -28,7 +28,7 @@ function ParametricModel(; N, T, γp, λp, γi=γp, λi=λp, fr=0.0, dilution=0.
     ∂ν = fill(0.0, 0:T+1, 0:T+1, 0:T+1, 0:2)
     Paux = fill(0.0, 0:1, 0:2)
     Paux∂ = fill(0.0, 0:1, 0:2)
-    ∂Λ = OffsetArray([t <= 0 ? 0.0 : t * ((1-λi)^(t-1)) for t = -T-2:T+1], -T-2:T+1)
+    ∂Λ = OffsetArray([t <= 0 ? 0.0 : - t * ((1-λi)^(t-1)) for t = -T-2:T+1], -T-2:T+1)
     Λ = OffsetArray([t <= 0 ? 1.0 : (1-λi)^t for t = -T-2:T+1], -T-2:T+1)
     ParametricModel(T, γp, λp,γi, λi,Paux, Paux∂, μ, ∂μ, belief, ν,∂ν, fr, dilution, distribution, residual(distribution), Λ, ∂Λ, eta)
 end
@@ -231,21 +231,12 @@ function ∂zψij(M::ParametricModel,neighbours,xi0,oi,sji)
             end
         end
     end
-    if any(isnan,∂ν)
-        println("NaN in ∂ν  at $(M.λi), $(M.dilution)")
-        return
-    end
-    if sum(∂ν) == 0
-        println("sum-zero ∂ν at $(M.λi), $(M.dilution), $(popsize(M)), $(M.fr)")
-        return
-    end  
     return edge_normalization(M,∂ν,sji)
 end
 
 function update_params!(M::ParametricModel,∂F)
-    @unpack T,Λ,∂Λ,λi,eta = M
-    @show ∂F
+    @unpack T,Λ,∂Λ,eta = M
     M.λi -= eta * ∂F
-    ∂Λ = OffsetArray([t <= 0 ? 0.0 : t * ((1-λi)^(t-1)) for t = -T-2:T+1], -T-2:T+1)
-    Λ = OffsetArray([t <= 0 ? 1.0 : (1-λi)^t for t = -T-2:T+1], -T-2:T+1)
+    ∂Λ = OffsetArray([t <= 0 ? 0.0 : - t * ((1-M.λi)^(t-1)) for t = -T-2:T+1], -T-2:T+1)
+    Λ = OffsetArray([t <= 0 ? 1.0 : (1-M.λi)^t for t = -T-2:T+1], -T-2:T+1)
 end
