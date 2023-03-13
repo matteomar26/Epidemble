@@ -1,9 +1,9 @@
-mutable struct ParametricModel{D,D2,Taux,M,M1,M2,O}
+mutable struct ParametricModel{D,D2,Taux,M,M1,M2,O,Tλ}
     T::Int
     γp::Float64
     λp::Float64
     γi::Float64
-    λi::Float64
+    λi::Tλ
     Paux::Taux
     Paux∂::Taux
     μ::M
@@ -17,23 +17,22 @@ mutable struct ParametricModel{D,D2,Taux,M,M1,M2,O}
     residual::D2
     Λ::O
     ∂Λ::O
-    eta::Float64
 end
 
-function ParametricModel(; N, T, γp, λp, γi=γp, λi=λp, fr=0.0, dilution=0.0, distribution, eta=1e-2)
-    ∂μ = fill(1.0 / (6*(T+2)^2), 0:T+1, 0:1, 0:T+1, 0:2, 1:N)
-    μ = fill(1.0 / (6*(T+2)^2), 0:T+1, 0:1, 0:T+1, 0:2, 1:N)
-    belief = fill(0.0, 0:T+1, 0:T+1, N)
-    ν = fill(0.0, 0:T+1, 0:T+1, 0:T+1, 0:2)
-    ∂ν = fill(0.0, 0:T+1, 0:T+1, 0:T+1, 0:2)
-    Paux = fill(0.0, 0:1, 0:2)
-    Paux∂ = fill(0.0, 0:1, 0:2)
+function ParametricModel(; N, T, γp, λp, γi=γp, λi=λp, fr=0.0, dilution=0.0, distribution)
+    ∂μ = fill(one(λi) / (6*(T+2)^2), 0:T+1, 0:1, 0:T+1, 0:2, 1:N)
+    μ = fill(one(λi) / (6*(T+2)^2), 0:T+1, 0:1, 0:T+1, 0:2, 1:N)
+    belief = fill(zero(λi), 0:T+1, 0:T+1, N)
+    ν = fill(zero(λi), 0:T+1, 0:T+1, 0:T+1, 0:2)
+    ∂ν = fill(zero(λi), 0:T+1, 0:T+1, 0:T+1, 0:2)
+    Paux = fill(zero(λi), 0:1, 0:2)
+    Paux∂ = fill(zero(λi), 0:1, 0:2)
     ∂Λ = OffsetArray([t <= 0 ? 0.0 : - t * ((1-λi)^(t-1)) for t = -T-2:T+1], -T-2:T+1)
     Λ = OffsetArray([t <= 0 ? 1.0 : (1-λi)^t for t = -T-2:T+1], -T-2:T+1)
-    ParametricModel(T, γp, λp,γi, λi,Paux, Paux∂, μ, ∂μ, belief, ν,∂ν, fr, dilution, distribution, residual(distribution), Λ, ∂Λ, eta)
+    ParametricModel(T, γp, λp,γi, λi,Paux, Paux∂, μ, ∂μ, belief, ν,∂ν, fr, dilution, distribution, residual(distribution), Λ, ∂Λ)
 end
 
-function update_μ!(M::ParametricModel,l,sij,sji)
+function update_μ!(M::Float64,l,sij,sji)
     @unpack T,Λ,∂Λ,μ,∂μ,Paux,Paux∂,ν = M
     ∂μ[:,:,:,:,l] .= 0
     μ[:,:,:,:,l] .= 0
@@ -78,7 +77,7 @@ function update_μ!(M::ParametricModel,l,sij,sji)
 end
 
 
-function ∂zψi(M::ParametricModel,l,neighbours,xi0,oi) 
+function ∂zψi(M::ParametricModel,neighbours,xi0,oi) 
     @unpack T, γi, μ, ∂μ = M
     ∂z = 0.0
     if xi0 == 0
@@ -130,7 +129,7 @@ function ∂zψi(M::ParametricModel,l,neighbours,xi0,oi)
                 m1∂ = ∂μ[ti,1,0,0,j] + ∂μ[ti,1,0,1,j] + ∂μ[ti,1,0,2,j]
                 m2∂ = ∂μ[ti,0,0,0,j] + ∂μ[ti,0,0,1,j] + ∂μ[ti,0,0,2,j]
                 for k in neighbours                
-                    (k == j) && (continue)
+                    (k == j) && continue
                     m1∂ *= μ[ti,1,0,0,k] + μ[ti,1,0,1,k] + μ[ti,1,0,2,k]
                     m2∂ *= μ[ti,0,0,0,k] + μ[ti,0,0,1,k] + μ[ti,0,0,2,k]
                 end
@@ -139,8 +138,8 @@ function ∂zψi(M::ParametricModel,l,neighbours,xi0,oi)
             end
             ∂z += ξ * seed * ( m1 - phi *  m2)
         end
-    end    
-    return ∂z 
+    end 
+    return ∂z  
 end
 
 function ∂zψij(M::ParametricModel,neighbours,xi0,oi,sji)
@@ -151,7 +150,7 @@ function ∂zψij(M::ParametricModel,neighbours,xi0,oi,sji)
             for ti = 0:T+1
                 ξ = obs(M,ti,τi,oi)
                 if ξ == 0.0 #if the observation is NOT satisfied
-                    continue  # ν = 0
+                    continue 
                 end
                 seed = (ti==0 ? γi : (1-γi) )
                 phi = (ti==0 || ti==T+1) ? 0 : 1
@@ -231,12 +230,13 @@ function ∂zψij(M::ParametricModel,neighbours,xi0,oi,sji)
             end
         end
     end
-    return edge_normalization(M,∂ν,sji)
+    return edge_normalization(M,∂ν,sji) 
 end
 
-function update_params!(M::ParametricModel,∂F)
-    @unpack T,Λ,∂Λ,eta = M
-    M.λi -= eta * ∂F
-    ∂Λ = OffsetArray([t <= 0 ? 0.0 : - t * ((1-M.λi)^(t-1)) for t = -T-2:T+1], -T-2:T+1)
-    Λ = OffsetArray([t <= 0 ? 1.0 : (1-M.λi)^t for t = -T-2:T+1], -T-2:T+1)
+function update_params!(M::ParametricModel,F,eta)
+    @unpack T,Λ,∂Λ = M
+    ∂F = F.im / M.λi.im
+    M.λi = clamp(M.λi.re - eta * ∂F,0.0,0.99) + im * λi.im
+    ∂Λ .= OffsetArray([t <= 0 ? 0.0 : - t * ((1-M.λi)^(t-1)) for t = -T-2:T+1], -T-2:T+1)
+    Λ .= OffsetArray([t <= 0 ? 1.0 : (1-M.λi)^t for t = -T-2:T+1], -T-2:T+1)
 end

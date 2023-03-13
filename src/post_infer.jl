@@ -1,9 +1,9 @@
-struct Model{D,D2,M,M1,M2,O,Taux}
+struct Model{D,D2,M,M1,M2,O,Taux,Tλ}
     T::Int
     γp::Float64
     λp::Float64
     γi::Float64
-    λi::Float64
+    λi::Tλ
     Paux::Taux
     μ::M
     ν::M1
@@ -24,7 +24,7 @@ function Model(; N, T, γp, λp, γi=γp, λi=λp, fr=0.0, dilution=0.0, distrib
     Model(T, γp, λp, γi, λi,Paux, μ, ν,belief, fr, dilution, distribution, residual(distribution), Λ)
 end
 
-function update_μ!(M::Model,l,sij,sji)
+function update_μ!(M,l,sij,sji)
     @unpack T,Λ,μ,Paux,ν = M
     μ[:,:,:,:,l] .= 0
     # First we calculate and store the cumulated of ν with respect to 
@@ -34,7 +34,7 @@ function update_μ!(M::Model,l,sij,sji)
         for τj = 0:T+1
             #First of all we set to 0 the function we want to update
             #because later we want to sum over it
-            Paux .= 0.0
+            Paux .= zero(eltype(Paux))
             for ti = 0:T+1
                 #we pre calculate the value of the summed part
                 # so not to calculate it twice
@@ -50,7 +50,7 @@ function update_μ!(M::Model,l,sij,sji)
         end
     end
     S = sum(@view μ[:,:,:,:,l])
-    if S == 0.0
+    if S == zero(eltype(μ))
         println("sum-zero μ  at $(M.λi), $(M.dilution)")
         return
     end   
@@ -64,6 +64,6 @@ end
 
 
 ∂zψij(M::Model,res_neigh,xi0,oi,sji) = 0.0
-∂zψi(M::Model,l,neighbours,xi0,oi) = 0.0
-function update_params!(M::Model,∂F)
+∂zψi(M::Model,neighbours,xi0,oi) = 0.0
+function update_params!(M::Model,∂F,eta)
 end

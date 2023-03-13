@@ -7,7 +7,7 @@ obs(M, ti, τi, oi) = oi ? (((ti <= M.T) == (τi <= M.T)) ? 1.0 - M.fr : M.fr) :
 
 function calculate_ν!(M,neighbours,xi0,oi)
     @unpack T,γi,Λ,μ,ν = M
-    ν .= 0.0
+    ν .= zero(eltype(ν))
     if xi0 == 0
         for τi = 1:T+1
             for ti = 0:T+1
@@ -27,7 +27,7 @@ function calculate_ν!(M,neighbours,xi0,oi)
                 #now we calculate the four products over
                 # μ functions that we need to put in the
                 # expression of ν. We call them m1,..,m4
-                m1, m2, m3, m4 = 1.0, 1.0, 1.0, 1.0
+                m1, m2, m3, m4 = one(eltype(μ)),one(eltype(μ)),one(eltype(μ)),one(eltype(μ))
                 # we initialize the m's to one and then we 
                 # loop a product over neighbours
                 for k in neighbours 
@@ -63,7 +63,7 @@ function calculate_ν!(M,neighbours,xi0,oi)
                 seed = (ti==0 ? γi : (1-γi) )
                 phi = (ti==0 || ti==T+1) ? 0 : 1
                 # We perform the product over neighbours
-                m1, m2 = 1.0, 1.0
+                m1, m2 = one(eltype(μ)), one(eltype(μ))
                 for k in neighbours                
                     m1 *= μ[ti,1,0,0,k] + μ[ti,1,0,1,k] + μ[ti,1,0,2,k]
                     m2 *= μ[ti,0,0,0,k] + μ[ti,0,0,1,k] + μ[ti,0,0,2,k]
@@ -77,7 +77,7 @@ function calculate_ν!(M,neighbours,xi0,oi)
         println("NaN in ν  at $(M.λi), $(M.dilution)")
         return
     end
-    if sum(ν) == 0
+    if sum(ν) == zero(eltype(ν))
         println("sum-zero ν at $(M.λi), $(M.dilution), $(popsize(M)), $(M.fr)")
         return
     end        
@@ -86,7 +86,7 @@ end
 
 function calculate_belief!(M,l,neighbours,xi0,oi) 
     @unpack T, belief, γi, μ = M
-    belief[:,:,l] .= 0
+    belief[:,:,l] .= zero(eltype(belief))
     if xi0 == 0
         for τi = 1:T+1
             for ti = 0:T+1
@@ -106,7 +106,7 @@ function calculate_belief!(M,l,neighbours,xi0,oi)
                 #now we calculate the four products over
                 # μ functions that we need to put in the
                 # expression of ν. We call them m1,..,m4
-                m1, m2, m3, m4 = 1.0, 1.0, 1.0, 1.0
+                m1, m2, m3, m4 = one(eltype(μ)),one(eltype(μ)),one(eltype(μ)),one(eltype(μ))
                 # we initialize the m's to one and then we 
                 # loop a product over neighbours
                 for k in neighbours 
@@ -138,7 +138,7 @@ function calculate_belief!(M,l,neighbours,xi0,oi)
             seed = (ti==0 ? γi : (1-γi) )
             phi = (ti==0 || ti==T+1) ? 0 : 1
             # We perform the product over neighbours
-            m1, m2 = 1.0, 1.0
+            m1, m2 = one(eltype(μ)),one(eltype(μ))
             for k in neighbours                
                 m1 *= μ[ti,1,0,0,k] + μ[ti,1,0,1,k] + μ[ti,1,0,2,k]
                 m2 *= μ[ti,0,0,0,k] + μ[ti,0,0,1,k] + μ[ti,0,0,2,k]
@@ -152,7 +152,7 @@ function calculate_belief!(M,l,neighbours,xi0,oi)
         return
     end
     S = sum(@view belief[:,:,l])
-    if S == 0
+    if S == zero(eltype(belief))
         println("sum-zero belief  at $(M.λi), $(M.dilution)")
         return
     end    
@@ -182,10 +182,9 @@ end
 
 function edge_normalization(M,ν,sji)
     tmp = sum(sum(ν,dims=1),dims=2)
-    norm = 0.0
+    norm = zero(eltype(ν))
     T = M.T
     for taui = 0:T+1
-        #norm += max(0,taui-sji) * tmp[0,0,taui,0] +  tmp[0,0,taui,1] + min(T+1,T-taui+sji+1) * tmp[0,0,taui,2]
         norm += max(0,taui-sji) * tmp[0,0,taui,0] + (taui-sji >= 0) * tmp[0,0,taui,1] + (T+2 - max(taui-sji+1,0)) * tmp[0,0,taui,2]
     end
     return norm
@@ -201,14 +200,16 @@ end
 
 FatTail(support,k) = DiscreteNonParametric(support, normalize!(1 ./ support .^ k, 1.0))
 
-function pop_dynamics(M; tot_iterations = 5, tol = 1e-10)
+function pop_dynamics(M; tot_iterations = 5, tol = 1e-10,eta=1e-2)
     T = M.T
     N = popsize(M)
-    F, ∂F = 0.0, 0.0
-    @showprogress for iterations = 1:tot_iterations
-        avg_old, err_old = avg_err(M)
-        F_itoj, ∂F_itoj = 0.0, 0.0
-        Fψi, ∂Fψi = 0.0, 0.0
+    F = zero(M.λi)
+    Fψi = zero(M.λi)
+    F_itoj = zero(M.λi)
+    for iterations = 1:tot_iterations
+        #avg_old, err_old = avg_err(M)
+        F_itoj = zero(M.λi)
+        Fψi = zero(M.λi)
         e = 1 #edge counter
         for l = 1:N
             # Extraction of disorder: state of individual i: xi0, delays: sij and sji
@@ -221,13 +222,13 @@ function pop_dynamics(M; tot_iterations = 5, tol = 1e-10)
                 #normalization z_i→j 
                 # needed for the computation of the Bethe Free energy
                 r = 1.0 / log(1-M.λp)
-                sji = floor(Int,log(rand())*r) + 1
                 sij = floor(Int,log(rand())*r) + 1
-                normν = edge_normalization(M,M.ν,sji)
-                F_itoj += log(normν)
-                ∂F_itoj += ∂zψij(M,res_neigh,xi0,oi,sji)/normν
+                sji = floor(Int,log(rand())*r) + 1
+                zψij = edge_normalization(M,M.ν,sji)
+                F_itoj += log(zψij)
+                #∂F_itoj += ∂zψij(M,res_neigh,xi0,oi,sji)/zψij
                 #Now we can normalize ν
-                M.ν ./= normν    
+                M.ν ./= zψij    
                 # Now we use the ν vector just calculated to extract the new μ.
                 # We overwrite the μ in postition μ[:,:,:,:,l]
                 update_μ!(M,e,sij,sji)  
@@ -235,16 +236,17 @@ function pop_dynamics(M; tot_iterations = 5, tol = 1e-10)
             end
             zψi = calculate_belief!(M,l,neighbours,xi0,oi)
             Fψi += (0.5 * d - 1) * log(zψi)  
-            ∂Fψi += (0.5 * d - 1) * ∂zψi(M,l,neighbours,xi0,oi)/zψi 
+            #∂Fψi += (0.5 * d - 1) * ∂zψi(M,neighbours,xi0,oi)/zψi
         end
         F = (Fψi - 0.5 * F_itoj) / popsize(M)
-        ∂F = (∂Fψi - 0.5 * ∂F_itoj) / popsize(M)
-        avg_new, err_new = avg_err(M)
+        #∂F = (∂Fψi - 0.5 * ∂F_itoj) / popsize(M)
+        @show  M.λi  
+        #avg_new, err_new = avg_err(M)
         #if sum(abs.(avg_new .- avg_old) .<= (tol .+ 0.3 .* (err_old .+ err_new))) == length(avg_new) 
          #   return F, iterations
         #end
-        update_params!(M,∂F)
+        update_params!(M,F,eta)
     end
-    return F, tot_iterations   
+    return F
 end
 
