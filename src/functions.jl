@@ -200,7 +200,7 @@ end
 
 FatTail(support,k) = DiscreteNonParametric(support, normalize!(1 ./ support .^ k, 1.0))
 
-function pop_dynamics(M; tot_iterations = 5, tol = 1e-10,eta=1e-2)
+function pop_dynamics(M; tot_iterations = 5, tol = 1e-10,eta=1e-1)
     T = M.T
     N = popsize(M)
     F = zero(M.λi)
