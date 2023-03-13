@@ -1,6 +1,6 @@
 function update_μ!(M,l,sij,sji)
     @unpack T,Λ,μ,Paux,ν = M
-    μ[:,:,:,:,l] .= 0
+    μ[:,:,:,:,l] .= zero(eltype(μ))
     # First we calculate and store the cumulated of ν with respect to 
     # planted time, i.e. the third argument. We call Σ this cumulated 
     Σ = cumsum(ν,dims=3)
@@ -32,7 +32,5 @@ function update_μ!(M,l,sij,sji)
         println("NaN in μ")
         return
     end
-    #μ[:,:,:,:,l] ./= S; #in the original form the messages are not normalized, but 
-    #@show S
 end
 
