@@ -62,8 +62,5 @@ function update_μ!(M,l,sij,sji)
     #@show S
 end
 
-
-∂zψij(M::Model,res_neigh,xi0,oi,sji) = 0.0
-∂zψi(M::Model,neighbours,xi0,oi) = 0.0
 function update_params!(M::Model,∂F,eta)
 end
