@@ -1,29 +1,3 @@
-struct Model{D,D2,M,M1,M2,O,Taux,Tλ}
-    T::Int
-    γp::Float64
-    λp::Float64
-    γi::Float64
-    λi::Tλ
-    Paux::Taux
-    μ::M
-    ν::M1
-    belief::M2
-    fr::Float64
-    dilution::Float64
-    distribution::D
-    residual::D2
-    Λ::O
-end
-
-function Model(; N, T, γp, λp, γi=γp, λi=λp, fr=0.0, dilution=0.0, distribution) 
-    μ = fill(1.0 / (6*(T+2)^2), 0:T+1, 0:1, 0:T+1, 0:2, 1:N)
-    Paux = fill(0.0, 0:1, 0:2)
-    belief = fill(0.0, 0:T+1, 0:T+1, N)
-    Λ = OffsetArray([t <= 0 ? 1.0 : (1-λi)^t for t = -T-2:T+1], -T-2:T+1)
-    ν = fill(0.0, 0:T+1, 0:T+1, 0:T+1, 0:2)
-    Model(T, γp, λp, γi, λi,Paux, μ, ν,belief, fr, dilution, distribution, residual(distribution), Λ)
-end
-
 function update_μ!(M,l,sij,sji)
     @unpack T,Λ,μ,Paux,ν = M
     μ[:,:,:,:,l] .= 0
@@ -62,5 +36,3 @@ function update_μ!(M,l,sij,sji)
     #@show S
 end
 
-function update_params!(M::Model,∂F,eta)
-end
