@@ -20,7 +20,7 @@ function ParametricModel(; N, T, γp, λp, γi=γp, λi=λp, fr=0.0, dilution=0.
     belief = fill(zero(λi), 0:T+1, 0:T+1, N)
     ν = fill(zero(λi), 0:T+1, 0:T+1, 0:T+1, 0:2)
     Paux = fill(zero(λi), 0:1, 0:2)
-    Λ = OffsetArray([t <= 0 ? 1.0 : (1-λi)^t for t = -T-2:T+1], -T-2:T+1)
+    Λ = OffsetArray([t <= 0 ? one(λi) : (1-λi)^t for t = -T-2:T+1], -T-2:T+1)
     ParametricModel(T, γp, λp,γi, λi,Paux, μ, belief, ν,fr, dilution, distribution, residual(distribution), Λ)
 end
 
