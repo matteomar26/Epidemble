@@ -191,6 +191,7 @@ function edge_normalization(M,ν,sji)
 end
 
 
+
 function update_μ!(M,l,sij,sji)
     @unpack T,Λ,μ,Paux,ν = M
     μ[:,:,:,:,l] .= zero(eltype(μ))
