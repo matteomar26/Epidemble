@@ -191,62 +191,38 @@ function edge_normalization(M,ν,sji)
 end
 
 
-function avg_err(M)
-    N = popsize(M)
-    avg_bel = reshape(sum(sum(M.belief,dims=2),dims=3) ./ (N*(M.T+2)),M.T+2) 
-    err_bel = sqrt.(reshape(sum(sum(M.belief .^ 2,dims=2),dims=3) ./ (N * (M.T+2)),M.T+2) .- (avg_bel .^ 2)) ./ sqrt(popsize(M))
-    return avg_bel, err_bel
-end
-
-FatTail(support,k) = DiscreteNonParametric(support, normalize!(1 ./ support .^ k, 1.0))
-
-function pop_dynamics(M; tot_iterations = 5, tol = 1e-10,eta=1e-1)
-    T = M.T
-    N = popsize(M)
-    F = zero(M.λi)
-    Fψi = zero(M.λi)
-    F_itoj = zero(M.λi)
-    for iterations = 1:tot_iterations
-        #avg_old, err_old = avg_err(M)
-        F_itoj = zero(M.λi)
-        Fψi = zero(M.λi)
-        e = 1 #edge counter
-        for l = 1:N
-            # Extraction of disorder: state of individual i: xi0, delays: sij and sji
-            xi0,sij,sji,d,oi = rand_disorder(M.γp,M.λp,M.distribution,M.dilution)
-            neighbours = rand(1:N,d)
-            for m = 1:d
-                res_neigh = [neighbours[1:m-1];neighbours[m+1:end]]
-                calculate_ν!(M,res_neigh,xi0,oi)
-                #from the un-normalized ν message it is possible to extract the orginal-message 
-                #normalization z_i→j 
-                # needed for the computation of the Bethe Free energy
-                r = 1.0 / log(1-M.λp)
-                sij = floor(Int,log(rand())*r) + 1
-                sji = floor(Int,log(rand())*r) + 1
-                zψij = edge_normalization(M,M.ν,sji)
-                F_itoj += log(zψij)
-                #∂F_itoj += ∂zψij(M,res_neigh,xi0,oi,sji)/zψij
-                #Now we can normalize ν
-                M.ν ./= zψij    
-                # Now we use the ν vector just calculated to extract the new μ.
-                # We overwrite the μ in postition μ[:,:,:,:,l]
-                update_μ!(M,e,sij,sji)  
-                e = mod(e,N) + 1
+function update_μ!(M,l,sij,sji)
+    @unpack T,Λ,μ,Paux,ν = M
+    μ[:,:,:,:,l] .= zero(eltype(μ))
+    # First we calculate and store the cumulated of ν with respect to 
+    # planted time, i.e. the third argument. We call Σ this cumulated 
+    Σ = cumsum(ν,dims=3)
+    @inbounds for tj = 0:T+1
+        for τj = 0:T+1
+            #First of all we set to 0 the function we want to update
+            #because later we want to sum over it
+            Paux .= zero(eltype(Paux))
+            for ti = 0:T+1
+                #we pre calculate the value of the summed part
+                # so not to calculate it twice
+                Γ = Σ[ti,tj,min(τj+sji-1,T+1),2] - (τj-sij>=0)*Σ[ti,tj,max(τj-sij,0),2]+(τj+sji<=T+1)*ν[ti,tj,min(τj+sji,T+1),1]+
+                    Σ[ti,tj,T+1,0] - Σ[ti,tj,min(τj+sji,T+1),0]
+                for c = 0:1
+                    Paux[c,0] += Λ[tj-ti-c] * (τj-sij-1>=0) * Σ[ti,tj,max(τj-sij-1,0),2]
+                    Paux[c,1] += Λ[tj-ti-c] * (τj-sij>=0) * ν[ti,tj,max(τj-sij,0),2]
+                    Paux[c,2] += Λ[tj-ti-c] * Γ
+                end
             end
-            zψi = calculate_belief!(M,l,neighbours,xi0,oi)
-            Fψi += (0.5 * d - 1) * log(zψi)  
-            #∂Fψi += (0.5 * d - 1) * ∂zψi(M,neighbours,xi0,oi)/zψi
+            μ[tj,:,τj,:,l] = Paux
         end
-        F = (Fψi - 0.5 * F_itoj) / popsize(M)
-        #∂F = (∂Fψi - 0.5 * ∂F_itoj) / popsize(M)
-        @show  M.λi  
-        #avg_new, err_new = avg_err(M)
-        #if sum(abs.(avg_new .- avg_old) .<= (tol .+ 0.3 .* (err_old .+ err_new))) == length(avg_new) 
-         #   return F, iterations
-        #end
-        update_params!(M,F,eta)
     end
-    return F
+    S = sum(@view μ[:,:,:,:,l])
+    if S == zero(eltype(μ))
+        println("sum-zero μ  at $(M.λi), $(M.dilution)")
+        return
+    end   
+    if isnan(S)
+        println("NaN in μ")
+        return
+    end
 end
-
