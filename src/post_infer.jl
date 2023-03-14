@@ -29,16 +29,20 @@ function update_params!(M,F::Float64,eta)
 end
 
 function update_params!(M,F::ComplexF64,eta)
+    (eta == 0.0) && return
     @unpack T,Λ = M
     ∂F = F.im / M.λi.im
     M.λi = clamp(M.λi.re - eta * ∂F,0.0,0.99) + im * M.λi.im
     Λ .= OffsetArray([t <= 0 ? 1.0 : (1-M.λi)^t for t = -T-2:T+1], -T-2:T+1)
+    M.γi = (sum(M.belief[0,:,:]) / popsize(M)).re
+    @show M.λi , M.γi 
 end
 
-function avg_err(M)
-    N = popsize(M)
-    avg_bel = reshape(sum(sum(M.belief,dims=2),dims=3) ./ (N*(M.T+2)),M.T+2) 
-    err_bel = sqrt.(reshape(sum(sum(M.belief .^ 2,dims=2),dims=3) ./ (N * (M.T+2)),M.T+2) .- (avg_bel .^ 2)) ./ sqrt(popsize(M))
+function avg_err(b)
+    N = size(b,3)
+    T = size(b,1) - 2
+    avg_bel = reshape(sum(sum(b,dims=2),dims=3) ./ (N*(T+2)),T+2) 
+    err_bel = sqrt.(reshape(sum(sum(b .^ 2,dims=2),dims=3) ./ (N * (T+2)),T+2) .- (avg_bel .^ 2)) ./ sqrt(N)
     return avg_bel, err_bel
 end
 
@@ -51,7 +55,7 @@ function pop_dynamics(M; tot_iterations = 5, tol = 1e-10,eta=1e-1)
     Fψi = zero(M.λi)
     F_itoj = zero(M.λi)
     for iterations = 1:tot_iterations
-        #avg_old, err_old = avg_err(M)
+        #avg_old, err_old = avg_err(M.belief |> real)
         F_itoj = zero(M.λi)
         Fψi = zero(M.λi)
         e = 1 #edge counter
@@ -70,7 +74,6 @@ function pop_dynamics(M; tot_iterations = 5, tol = 1e-10,eta=1e-1)
                 sji = floor(Int,log(rand())*r) + 1
                 zψij = edge_normalization(M,M.ν,sji)
                 F_itoj += log(zψij)
-                #∂F_itoj += ∂zψij(M,res_neigh,xi0,oi,sji)/zψij
                 #Now we can normalize ν
                 M.ν ./= zψij    
                 # Now we use the ν vector just calculated to extract the new μ.
@@ -80,12 +83,9 @@ function pop_dynamics(M; tot_iterations = 5, tol = 1e-10,eta=1e-1)
             end
             zψi = calculate_belief!(M,l,neighbours,xi0,oi)
             Fψi += (0.5 * d - 1) * log(zψi)  
-            #∂Fψi += (0.5 * d - 1) * ∂zψi(M,neighbours,xi0,oi)/zψi
         end
         F = (Fψi - 0.5 * F_itoj) / popsize(M)
-        #∂F = (∂Fψi - 0.5 * ∂F_itoj) / popsize(M)
-        @show  M.λi |> real  
-        #avg_new, err_new = avg_err(M)
+        #avg_new, err_new = avg_err(M.belief |> real)
         #if sum(abs.(avg_new .- avg_old) .<= (tol .+ 0.3 .* (err_old .+ err_new))) == length(avg_new) 
          #   return F, iterations
         #end
