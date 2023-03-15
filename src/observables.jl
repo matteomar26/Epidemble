@@ -108,7 +108,7 @@ function save_values!(inf_out,marg,conv)
     inf_out[T+3 : 2*T + 3] .= avgOverlap(marg)
     inf_out[2*T + 4 : 3*T + 4] .= L1(marg2D)
     inf_out[3*T + 5 : 4*T + 5] .= MSE(marg)
-    inf_out[4*T + 6] = conv[1] #free energy 
+    inf_out[4*T + 6] = conv[1] |> real #free energy 
 end
 
 
@@ -126,6 +126,20 @@ function inf_vs_dil_mism(γ, λRange, λp, N, T, degree_dist, fr , dilRange ; to
     return inf_out
 end
 
+function inf_vs_gam_learn(γRange, λRange, γi, λi, N, T, degree_dist, fr , dil ; tot_iterations = 1 )
+    inf_out = zeros(length(λRange),length(γRange), 4*T + 6) # 2 value for conv and Fe and 4(T+1) values for the AUC,overlap,L1,MSE
+    Threads.@threads for (λcount,γcount) in collect(product(1:length(λRange),1:length(γRange)))
+        λp = λRange[λcount]
+        dilution = dil
+        γp = γRange[γcount]
+        M = ParametricModel(N = N, T = T, γp = γp, λp = λp, γi=γi, λi=λi + 0.001im, fr=fr, dilution=dilution, distribution=degree_dist) ;
+        conv = pop_dynamics(M, tot_iterations = 5, eta = 0.3)
+        conv = pop_dynamics(M, tot_iterations = tot_iterations, eta = 0.1)
+        marg = M.belief |> real;
+        save_values!(@view(inf_out[λcount,γcount,:]), marg, conv)
+    end
+    return inf_out
+end
 
 
 function inf_vs_dil_mismγ(λ, γRange, γp, N, T, degree_dist, fr , dilRange ; tot_iterations = 1 )
