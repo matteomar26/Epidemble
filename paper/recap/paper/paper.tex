@@ -34,16 +34,37 @@
 \begin{document}
 \title{Ensemble Study for Inference in Epidemic Spreading}
 
+\author{Alfredo Braunstein}
+\affiliation{DISAT, Politecnico di Torino, Corso Duca Degli Abruzzi 24, I-10129 Torino, Italy}
+
+\author{Louise Budzynski}
+\affiliation{DISAT, Politecnico di Torino, Corso Duca Degli Abruzzi 24, I-10129 Torino, Italy}
+\affiliation{Italian Institute for Genomic Medicine, IRCCS Candiolo, SP-142, I-10060, Candiolo (TO), Italy}
+
+
+\author{Matteo Mariani}
+\affiliation{DISAT, Politecnico di Torino, Corso Duca Degli Abruzzi 24, I-10129 Torino, Italy}
+
+\begin{abstract}
+	Interest for stat phys community: treatment of delays as disorder
+\end{abstract}
+
 \maketitle
 
 \section{Introduction}
 Epidemic inference is crucial to develop advanced contact tracing strategies in order to mitigate the spreading of an epidemic.
-
-There are regimes in which inference is harder (high transmissibility?)
-
-The goal of this paper is to give a quantitative study, on a simple model, on the hardness of inference tasks, depending on the epidemic's parameters, properties of the contact network, and noise in the observations.
-
 Hardness of SI inference, connection with Steiner tree problem.
+Overview of state-of-the-art methods for inference in epidemics. Among them, BP methods are good candidates (motivate why ?).
+There are regimes in which inference is harder (high transmissibility?). 
+This can be due to algorithmic limitations (lack of convergence, meta-stable states ?) but there could be theoretical limitations to inference (i.e. what is the information contained on the posterior probability).
+The goal of this paper is to give a quantitative study, on a simple model, on the hardness of inference tasks, depending on the epidemic's parameters, properties of the contact network, and noise in the observations.
+It relies on a study of the typical properties of the posterior probability measure, averaged over contact graphs ensemble and realization of the epidemic spreading, using the Replica Symmetric (RS) cavity method. 
+Trick: treatment of the {\it local} delays and seed initial infection probability as disorder variable (instead of non-local infection times) allows us to write the posterior probability as a graphical model on which the RS cavity method can be applied.
+First, study in Bayes-optimal case, where RS is expected. Obtain good agreement with the result of message-passing algorithm.
+Then, departing from Bayes-optimal conditions, identify a regime in which both message-passing algorithms do not converge, nor the iterative numerical resolution of the RS cavity equations. This suggests the presence of an RSB transition.
+When the prior's parameter are not known, one can rely on strategies such as Expectation-Maximisation to infer the prior parameters. These strategies are equivalent to imposing the Nishimori conditions.
+We give in the last part a quantitative study of the parameter's inference, depending on the prior's parameter. We show that inferring parameters allowing to recover the Nishimori conditions is possible for a large range (all?) of the prior parameters, even when starting from initial conditions that are in the unconverged regime.
+
 
 \section{Ensemble Study for Inference of Epidemic Trajectories}
 \subsection{Epidemic Inference}
@@ -193,6 +214,10 @@ In that case the probability of error is zero: $p=0$ so the corrupted variables 
 	\end{cases} \ .
 \end{align*}
 
+\subsection{Other approaches}
+Talk about unsuccessful approaches where planted infection is part of the disorder.
+Mention the fact that the probability on planted times conditioned on the disorder is a delta distribution, and that this can be used to simplify the message passing equations (with a clever parametrization).
+
 \subsection{Belief-Propagation equations for the joint-probability}
 The factor graph associated with the probability distribution~(\ref{eq:joint_disorder}) contains short loops which compromise the use of BP. \textcolor{blue}{\it (add a figure)} 
 In order to remove these short loops, we introduce the auxiliary variables $(\tau_i^{(j)},\tau_j^{(i)},t_i^{(j)},t_j^{(i)})$ on each edge $(ij)\in E$ of the factor graph, which are the copied times $\tau_i^{(j)}=\tau_i$, and $t_i^{(j)}=t_i$ for all $j\in\partial i$.
@@ -227,21 +252,22 @@ We see in supplemental how to simplify the BP equations~\ref{eq:BP_equations}, a
 
 
 \section{Results in the Bayes-Optimal case}
-\subsection{Check against simulations}
-\subsection{Varying epidemic's parameters}
-\subsection{Varying the false positive/negative rates}
-And also dilution
-\subsection{Varying graph properties}
-Vary graph connectivity and graph ensembles (fat tail)
+To show: plots varying $\lambda, \gamma,p$, and dilution. Varying graph ensembles (regular, ER, fat tails). 
+Varying the time of observation.
+For all plots: show good coherence with simulation on large instances.
+
 \section{Departing from Bayes-optimal conditions}
-{\em Nishimori equalities for epidemic spreading.}
+\subsection{Nishimori equalities for epidemic spreading.}
 Explain that the Nishimori argument for Replica Symmetry still holds in this model.
-\subsection{Hint of a RSB transition}
+\subsection{Results}
+Characterize the regime in which the numerical resolution of the cavity method and the BP algorithms fail. Say that it suggests a RSB transition.
+
 \section{Inferring epidemic's parameters}
+
 
 \section{Conclusion}
 
-
+Talk about limitations: sparse graph ensembles. SI model is the simplest model for epidemic spreading, to give a quantitative study one should move to models with more states (starting with SIR). This should be possible, but will increase the complexity of RS equations: a priori one needs to store two times (one planted and one inferred time) for each transition from one state to another.
 
 
 \bibliography{../draft}
