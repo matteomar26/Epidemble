@@ -55,8 +55,10 @@ function pop_dynamics(M; tot_iterations = 5, tol = 1e-10,eta=0.0)
     F = zero(M.λi)
     Fψi = zero(M.λi)
     F_itoj = zero(M.λi)
-    for iterations = 1:tot_iterations
+    lam_window = zeros(10)
+    for iterations = 0:tot_iterations
         avg_old, err_old = avg_err(M.belief |> real)
+        lam_window[mod(iterations,10)+1] = M.λi |> real
         F_itoj = zero(M.λi)
         Fψi = zero(M.λi)
         e = 1 #edge counter
@@ -87,12 +89,27 @@ function pop_dynamics(M; tot_iterations = 5, tol = 1e-10,eta=0.0)
         end
         F = (Fψi - 0.5 * F_itoj) / popsize(M)
         avg_new, err_new = avg_err(M.belief |> real)
-       # if sum(abs.(avg_new .- avg_old) .<= (tol .+ 0.3 .* (err_old .+ err_new))) == length(avg_new) 
-        #    return F, iterations
-        #end
+        eta = check_prior(iterations, eta, lam_window)
+        if (sum(abs.(avg_new .- avg_old) .<= (tol .+ 0.3 .* (err_old .+ err_new))) == length(avg_new)) 
+            return F, iterations
+        end
+        @show eta
         update_params!(M,F,eta)
+        
     end
     return F,tot_iterations
 end
 
-
+function check_prior(iterations, eta, lam_window)
+    if iterations >= 10
+        if eta != 0
+            avg_lam = sum(lam_window) / 10
+            err_lam = sqrt(sum(lam_window .^ 2)/10 - avg_lam ^ 2)/sqrt(10)
+            if (err_lam/avg_lam <= eta) 
+               return zero(eta)
+            end
+        end
+    end
+    return eta
+end
+    
