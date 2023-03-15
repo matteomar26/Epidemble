@@ -32,10 +32,11 @@ function update_params!(M,F::ComplexF64,eta)
     (eta == 0.0) && return
     @unpack T,Λ = M
     ∂F = F.im / M.λi.im
-    M.λi = clamp(M.λi.re - eta * ∂F,0.0,0.99) + im * M.λi.im
+    dλ = - sign(∂F) * eta * M.λi.re #SignDescender
+    M.λi = clamp(M.λi.re + dλ,0.0,0.99) + im * M.λi.im
     Λ .= OffsetArray([t <= 0 ? 1.0 : (1-M.λi)^t for t = -T-2:T+1], -T-2:T+1)
     M.γi = (sum(M.belief[0,:,:]) / popsize(M)).re
-    @show M.λi , M.γi 
+    #@show M.λi , M.γi 
 end
 
 function avg_err(b)
@@ -48,14 +49,14 @@ end
 
 FatTail(support,k) = DiscreteNonParametric(support, normalize!(1 ./ support .^ k, 1.0))
 
-function pop_dynamics(M; tot_iterations = 5, tol = 1e-10,eta=1e-1)
+function pop_dynamics(M; tot_iterations = 5, tol = 1e-10,eta=0.0)
     T = M.T
     N = popsize(M)
     F = zero(M.λi)
     Fψi = zero(M.λi)
     F_itoj = zero(M.λi)
     for iterations = 1:tot_iterations
-        #avg_old, err_old = avg_err(M.belief |> real)
+        avg_old, err_old = avg_err(M.belief |> real)
         F_itoj = zero(M.λi)
         Fψi = zero(M.λi)
         e = 1 #edge counter
@@ -85,13 +86,13 @@ function pop_dynamics(M; tot_iterations = 5, tol = 1e-10,eta=1e-1)
             Fψi += (0.5 * d - 1) * log(zψi)  
         end
         F = (Fψi - 0.5 * F_itoj) / popsize(M)
-        #avg_new, err_new = avg_err(M.belief |> real)
-        #if sum(abs.(avg_new .- avg_old) .<= (tol .+ 0.3 .* (err_old .+ err_new))) == length(avg_new) 
-         #   return F, iterations
+        avg_new, err_new = avg_err(M.belief |> real)
+       # if sum(abs.(avg_new .- avg_old) .<= (tol .+ 0.3 .* (err_old .+ err_new))) == length(avg_new) 
+        #    return F, iterations
         #end
         update_params!(M,F,eta)
     end
-    return F
+    return F,tot_iterations
 end
 
 
