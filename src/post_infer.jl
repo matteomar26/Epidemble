@@ -25,18 +25,17 @@ function ParametricModel(; N, T, γp, λp, γi=γp, λi=λp, fr=0.0, dilution=0.
 end
 
 
-function update_params!(M,F::Float64,eta)
-end
 
-function update_params!(M,F::ComplexF64,eta)
-    (eta == 0.0) && return
+function update_lam!(M,F::ComplexF64,eta)
     @unpack T,Λ = M
     ∂F = F.im / M.λi.im
     dλ = - sign(∂F) * eta * M.λi.re #SignDescender
     M.λi = clamp(M.λi.re + dλ,0.0,0.99) + im * M.λi.im
     Λ .= OffsetArray([t <= 0 ? 1.0 : (1-M.λi)^t for t = -T-2:T+1], -T-2:T+1)
+end
+
+function update_gam!(M)
     M.γi = (sum(M.belief[0,:,:]) / popsize(M)).re
-    #@show M.λi , M.γi 
 end
 
 function avg_err(b)
@@ -49,67 +48,69 @@ end
 
 FatTail(support,k) = DiscreteNonParametric(support, normalize!(1 ./ support .^ k, 1.0))
 
-function pop_dynamics(M; tot_iterations = 5, tol = 1e-10,eta=0.0)
-    T = M.T
+
+function sweep!(M)
+    e = 1 #edge counter
     N = popsize(M)
-    F = zero(M.λi)
-    Fψi = zero(M.λi)
     F_itoj = zero(M.λi)
-    lam_window = zeros(10)
-    for iterations = 0:tot_iterations
-        avg_old, err_old = avg_err(M.belief |> real)
-        lam_window[mod(iterations,10)+1] = M.λi |> real
-        F_itoj = zero(M.λi)
-        Fψi = zero(M.λi)
-        e = 1 #edge counter
-        for l = 1:N
-            # Extraction of disorder: state of individual i: xi0, delays: sij and sji
-            xi0,sij,sji,d,oi = rand_disorder(M.γp,M.λp,M.distribution,M.dilution)
-            neighbours = rand(1:N,d)
-            for m = 1:d
-                res_neigh = [neighbours[1:m-1];neighbours[m+1:end]]
-                calculate_ν!(M,res_neigh,xi0,oi)
-                #from the un-normalized ν message it is possible to extract the orginal-message 
-                #normalization z_i→j 
-                # needed for the computation of the Bethe Free energy
-                r = 1.0 / log(1-M.λp)
-                sij = floor(Int,log(rand())*r) + 1
-                sji = floor(Int,log(rand())*r) + 1
-                zψij = edge_normalization(M,M.ν,sji)
-                F_itoj += log(zψij)
-                #Now we can normalize ν
-                M.ν ./= zψij    
-                # Now we use the ν vector just calculated to extract the new μ.
-                # We overwrite the μ in postition μ[:,:,:,:,l]
-                update_μ!(M,e,sij,sji)  
-                e = mod(e,N) + 1
-            end
-            zψi = calculate_belief!(M,l,neighbours,xi0,oi)
-            Fψi += (0.5 * d - 1) * log(zψi)  
+    Fψi = zero(M.λi)
+    for l = 1:N
+        # Extraction of disorder: state of individual i: xi0, delays: sij and sji
+        xi0,sij,sji,d,oi = rand_disorder(M.γp,M.λp,M.distribution,M.dilution)
+        neighbours = rand(1:N,d)
+        for m = 1:d
+            res_neigh = [neighbours[1:m-1];neighbours[m+1:end]]
+            calculate_ν!(M,res_neigh,xi0,oi)
+            #from the un-normalized ν message it is possible to extract the orginal-message 
+            #normalization z_i→j 
+            # needed for the computation of the Bethe Free energy
+            r = 1.0 / log(1-M.λp)
+            sij = floor(Int,log(rand())*r) + 1
+            sji = floor(Int,log(rand())*r) + 1
+            zψij = edge_normalization(M,M.ν,sji)
+            F_itoj += log(zψij)
+            #Now we can normalize ν
+            M.ν ./= zψij    
+            # Now we use the ν vector just calculated to extract the new μ.
+            # We overwrite the μ in postition μ[:,:,:,:,l]
+            update_μ!(M,e,sij,sji)  
+            e = mod(e,N) + 1
         end
-        F = (Fψi - 0.5 * F_itoj) / popsize(M)
+        zψi = calculate_belief!(M,l,neighbours,xi0,oi)
+        Fψi += (0.5 * d - 1) * log(zψi)  
+    end
+    return (Fψi - 0.5 * F_itoj) / N
+end
+
+function pop_dynamics(M; tot_iterations = 5, tol = 1e-10, eta = 0.0, infer_lam=false, infer_gam = false)
+    N, T, F = popsize(M), M.T, zero(M.λi)
+    lam_window = zeros(10)
+    gam_window = zeros(10)
+    for iterations = 0:tot_iterations-1
+        wflag = mod(iterations,10)+1
+        lam_window[wflag] = M.λi |> real
+        gam_window[wflag] = M.γi |> real
+        avg_old, err_old = avg_err(M.belief |> real)
+        F = sweep!(M)
         avg_new, err_new = avg_err(M.belief |> real)
-        eta = check_prior(iterations, eta, lam_window)
+        infer_lam = check_prior(iterations, infer_lam, lam_window, eta)
+        infer_gam = check_prior(iterations, infer_gam, gam_window, eta)
         if (sum(abs.(avg_new .- avg_old) .<= (tol .+ 0.3 .* (err_old .+ err_new))) == length(avg_new)) 
             return F, iterations
         end
-        @show eta
-        update_params!(M,F,eta)
-        
+        (infer_lam) && (update_lam!(M,F,eta))
+        (infer_gam) && (update_gam!(M))
     end
     return F,tot_iterations
 end
 
-function check_prior(iterations, eta, lam_window)
-    if iterations >= 10
-        if eta != 0
-            avg_lam = sum(lam_window) / 10
-            err_lam = sqrt(sum(lam_window .^ 2)/10 - avg_lam ^ 2)/sqrt(10)
-            if (err_lam/avg_lam <= eta) 
-               return zero(eta)
-            end
+function check_prior(iterations, infer, window, eta)
+    if (iterations >= 10 && infer)
+        avg = sum(window) / 10
+        err = sqrt(sum(window .^ 2)/10 - avg ^ 2)/sqrt(10)
+        if (err/avg <= eta) 
+           return false
         end
     end
-    return eta
+    return infer
 end
-    
