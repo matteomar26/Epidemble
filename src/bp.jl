@@ -74,11 +74,11 @@ function calculate_ν!(M,neighbours,xi0,oi)
         end
     end
     if any(isnan,ν)
-        println("NaN in ν  at $(M.λi), $(M.dilution)")
+        println("NaN in ν  at $(M.λi), $(M.γi)")
         return
     end
     if sum(ν) == zero(eltype(ν))
-        println("sum-zero ν at $(M.λi), $(M.dilution), $(popsize(M)), $(M.fr)")
+        println("sum-zero ν at $(M.λi), $(M.γi), $(popsize(M)), $(M.fr)")
         return
     end        
 end
@@ -153,7 +153,7 @@ function calculate_belief!(M,l,neighbours,xi0,oi)
     end
     S = sum(@view belief[:,:,l])
     if S == zero(eltype(belief))
-        println("sum-zero belief  at $(M.λi), $(M.dilution)")
+        println("sum-zero belief  at $(M.λi), $(M.γi), $(M.γp)")
         return
     end    
     belief[:,:,l] ./= S
@@ -219,7 +219,7 @@ function update_μ!(M,l,sij,sji)
     end
     S = sum(@view μ[:,:,:,:,l])
     if S == zero(eltype(μ))
-        println("sum-zero μ  at $(M.λi), $(M.dilution)")
+        println("sum-zero μ  at $(M.λi), $(M.γi)")
         return
     end   
     if isnan(S)
