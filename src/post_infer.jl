@@ -1,4 +1,4 @@
-mutable struct ParametricModel{D,D2,Taux,M,M1,M2,O,Tλ}
+mutable struct ParametricModel{D,D2,Taux,M,M1,M2,O,Tλ,MO}
     T::Int
     γp::Float64
     λp::Float64
@@ -13,6 +13,7 @@ mutable struct ParametricModel{D,D2,Taux,M,M1,M2,O,Tλ}
     distribution::D
     residual::D2
     Λ::O
+    obs_list::MO
 end
 
 function ParametricModel(; N, T, γp, λp, γi=γp, λi=λp, fr=0.0, dilution=0.0, distribution)
@@ -21,7 +22,7 @@ function ParametricModel(; N, T, γp, λp, γi=γp, λi=λp, fr=0.0, dilution=0.
     ν = fill(zero(λi), 0:T+1, 0:T+1, 0:T+1, 0:2)
     Paux = fill(zero(λi), 0:1, 0:2)
     Λ = OffsetArray([t <= 0 ? one(λi) : (1-λi)^t for t = -T-2:T+1], -T-2:T+1)
-    ParametricModel(T, γp, λp,γi, λi,Paux, μ, belief, ν,fr, dilution, distribution, residual(distribution), Λ)
+    ParametricModel(T, γp, λp,γi, λi,Paux, μ, belief, ν,fr, dilution, distribution, residual(distribution), Λ,fill(false,N))
 end
 
 
@@ -57,6 +58,7 @@ function sweep!(M)
     for l = 1:N
         # Extraction of disorder: state of individual i: xi0, delays: sij and sji
         xi0,sij,sji,d,oi = rand_disorder(M.γp,M.λp,M.distribution,M.dilution)
+        M.obs_list[l] = oi #this is stored for later estimation of AUC
         neighbours = rand(1:N,d)
         for m = 1:d
             res_neigh = [neighbours[1:m-1];neighbours[m+1:end]]

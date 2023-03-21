@@ -66,27 +66,31 @@ function avgOverlap(marg)
     return [overlap[t] for t = 0:T]
 end
 
-function avgAUC(marg)
+function avgAUC(marg; count_obs=true)
     N = size(marg,3)
     T = size(marg,1) - 2
     AUC = OffsetArrays.OffsetArray(zeros(T+1),-1)
     count = OffsetArrays.OffsetArray(zeros(T+1),-1)
     for l = 1 :  N 
         for m = l + 1 : min(N,l+400)
-            result = 0
-            for τi = 0 : T 
-                (sum(marg[:, τi, l]) == 0 ) && continue
-                for τj = τi + 1 : T + 1
-                    (sum(marg[:, τj, m]) == 0) && continue
-                    # at the perfect inference for t=τj you would sum the diagonal
-                    for t = τi : τj - 1
-                        count[t] += 1
-                        pi = sum(marg[0:t, τi, l])
-                        pj = sum(marg[0:t, τj, m])
-                        if pi ≈ pj
-                            AUC[t] += 1/2
-                        elseif pi > pj
-                            AUC[t] += 1
+            if ((count_obs == false) && (M.obs_list[l] || M.obs_list[m]))
+                continue
+            else
+                result = 0
+                for τi = 0 : T 
+                    (sum(marg[:, τi, l]) == 0 ) && continue
+                    for τj = τi + 1 : T + 1
+                        (sum(marg[:, τj, m]) == 0) && continue
+                        # at the perfect inference for t=τj you would sum the diagonal
+                        for t = τi : τj - 1
+                            count[t] += 1
+                            pi = sum(marg[0:t, τi, l])
+                            pj = sum(marg[0:t, τj, m])
+                            if pi ≈ pj
+                                AUC[t] += 1/2
+                            elseif pi > pj
+                                AUC[t] += 1
+                            end
                         end
                     end
                 end
