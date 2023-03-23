@@ -66,14 +66,14 @@ function avgOverlap(marg)
     return [overlap[t] for t = 0:T]
 end
 
-function avgAUC(marg; count_obs=true)
+function avgAUC(marg,obs_list; count_obs=true)
     N = size(marg,3)
     T = size(marg,1) - 2
     AUC = OffsetArrays.OffsetArray(zeros(T+1),-1)
     count = OffsetArrays.OffsetArray(zeros(T+1),-1)
     for l = 1 :  N 
         for m = l + 1 : min(N,l+400)
-            if ((count_obs == false) && (M.obs_list[l] || M.obs_list[m]))
+            if ((count_obs == false) && (obs_list[l] || obs_list[m]))
                 continue
             else
                 result = 0
