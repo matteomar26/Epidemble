@@ -2,10 +2,13 @@ using Distributions,UnPack,OffsetArrays
 
 
 popsize(M) = size(M.belief,3)
-obs(M, ti, τi, oi) = oi ? (((ti <= M.T) == (τi <= M.T)) ? 1.0 - M.fr : M.fr) : 1.0
+
+function obs(M, ti, τi, oi, ti_obs) 
+    return oi ? (((ti <= ti_obs) == (τi <= ti_obs)) ? 1.0 - M.fr : M.fr) : 1.0
+end
 
 
-function calculate_ν!(M,neighbours,xi0,oi)
+function calculate_ν!(M,neighbours,xi0,oi,ti_obs)
     @unpack T,γi,Λ,μ,ν = M
     ν .= zero(eltype(ν))
     if xi0 == 0
@@ -14,7 +17,7 @@ function calculate_ν!(M,neighbours,xi0,oi)
                 #first we check consistency between
                 # the planted time τi and the inferred 
                 #time ti by checking the observation constraint
-                ξ = obs(M,ti,τi,oi)
+                ξ = obs(M,ti,τi,oi,ti_obs)
                 if ξ == 0.0 #if the observation is NOT satisfied
                     continue  # ν = 0
                 end
@@ -52,7 +55,7 @@ function calculate_ν!(M,neighbours,xi0,oi)
 
         for tj = 0:T+1
             for ti = 0:T+1
-                ξ = obs(M,ti,0,oi)
+                ξ = obs(M,ti,0,oi,ti_obs)
                 if ξ == 0.0  #if the observation is NOT satisfied
                     continue
                 end
@@ -93,7 +96,7 @@ function calculate_belief!(M,l,neighbours,xi0,oi)
                 #first we check consistency between
                 # the planted time τi and the inferred 
                 #time ti by checking the observation constraint
-                ξ = obs(M,ti,τi,oi)
+                ξ = obs(M,ti,τi,oi,ti_obs)
                 if ξ == 0.0 #if the observation is NOT satisfied
                     continue  # ν = 0
                 end
@@ -127,7 +130,7 @@ function calculate_belief!(M,l,neighbours,xi0,oi)
         # so we separated the cases
 
         for ti = 0:T+1
-            ξ = obs(M,ti,0,oi)
+            ξ = obs(M,ti,0,oi,ti_obs)
             if ξ == 0.0  #if the observation is NOT satisfied
                 continue
             end
@@ -168,15 +171,15 @@ residual(d::Dirac) = Dirac(d.value - 1) #residual degree of rr distribution (del
 residual(d::DiscreteNonParametric) = DiscreteNonParametric(support(d) .- 1, (probs(d) .* support(d)) / sum(probs(d) .* support(d)))
 residual(d::DiscreteUniform) = Dirac(0)
 
-function rand_disorder(γp, λp, dist, dilution)
-    r = 1.0 / log(1-λp)
+function rand_disorder(γp, λp, dist, dilution, Trange)
+    r = 1.0 / log(1-λp) #random number to generate the delays
     sij = floor(Int,log(rand())*r) + 1
-    sji = floor(Int,log(rand())*r) + 1
-    xi0 = (rand() < γp);
-    d = rand(dist)
-    oi = rand() > dilution 
-    # oi = 1 if the particle is observed, oi = 0 if the particle is not observed 
-    return xi0, sij, sji, d, oi
+    sji = floor(Int,log(rand())*r) + 1 # infection delay
+    xi0 = (rand() < γp); #zero patient
+    d = rand(dist) #parameter of the degree distribution
+    oi = rand() > dilution # oi = 1 if the particle is observed, oi = 0 if the particle is not observed 
+    ti_obs = rand(Trange) 
+    return xi0, sij, sji, d, oi, ti_obs
 end
 
 
