@@ -87,7 +87,7 @@ function calculate_ν!(M,neighbours,xi0,oi,ti_obs)
 end
 
 
-function calculate_belief!(M,l,neighbours,xi0,oi) 
+function calculate_belief!(M,l,neighbours,xi0,oi,ti_obs) 
     @unpack T, belief, γi, μ = M
     belief[:,:,l] .= zero(eltype(belief))
     if xi0 == 0
