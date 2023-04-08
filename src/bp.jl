@@ -76,10 +76,6 @@ function calculate_ν!(M,neighbours,xi0,oi,ti_obs)
             end
         end
     end
-    if any(isnan,ν)
-        println("NaN in ν  at $(M.λi), $(M.γi)")
-        return
-    end
     if sum(ν) == zero(eltype(ν))
         println("sum-zero ν at $(M.λi), $(M.γi), $(popsize(M)), $(M.fr)")
         return
@@ -149,10 +145,6 @@ function calculate_belief!(M,l,neighbours,xi0,oi,ti_obs)
             #We calculate ν in the zero patient case
             belief[ti,0,l] = ξ * seed * ( m1 - phi *  m2)
         end
-    end
-    if any(isnan, @view belief[:,:,l])
-        println("NaN in belief")
-        return
     end
     S = sum(@view belief[:,:,l])
     if S == zero(eltype(belief))
@@ -225,8 +217,4 @@ function update_μ!(M,l,sij,sji)
         println("sum-zero μ  at $(M.λi), $(M.γi)")
         return
     end   
-    if isnan(S)
-        println("NaN in μ")
-        return
-    end
 end

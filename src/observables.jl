@@ -72,7 +72,7 @@ function avgAUC(marg,obs_list; count_obs=true)
     AUC = OffsetArrays.OffsetArray(zeros(T+1),-1)
     count = OffsetArrays.OffsetArray(zeros(T+1),-1)
     for l = 1 :  N 
-        for m = l + 1 : min(N,l+400)
+        for m = l + 1 : min(N,l+4000)
             if ((count_obs == false) && (obs_list[l] || obs_list[m]))
                 continue
             else

@@ -111,7 +111,7 @@ end
 function check_prior(iterations, infer, window, eta)
     if (iterations >= 10 && infer)
         avg = sum(window) / 10
-        err = sqrt(sum(window .^ 2)/10 - avg ^ 2)/sqrt(5)
+        err = sqrt(sum(window .^ 2)/10 - avg ^ 2)
         if (err/avg <= eta) 
            return false
         end
