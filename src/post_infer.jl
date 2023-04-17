@@ -62,12 +62,12 @@ function sweep!(M)
     Fψi = zero(M.λi)
     for l = 1:N
         # Extraction of disorder: state of individual i: xi0, delays: sij and sji
-        xi0,sij,sji,d,oi,ti_obs = rand_disorder(M.γp,M.λp,M.distribution,M.dilution,M.obs_range)
+        xi0,sij,sji,d,oi,ci,ti_obs = rand_disorder(M.γp,M.λp,M.distribution,M.dilution,M.fr,M.obs_range)
         M.obs_list[l] = oi #this is stored for later estimation of AUC
         neighbours = rand(1:N,d)
         for m = 1:d
             res_neigh = [neighbours[1:m-1];neighbours[m+1:end]]
-            calculate_ν!(M,res_neigh,xi0,oi,ti_obs)
+            calculate_ν!(M,res_neigh,xi0,oi,ci,ti_obs)
             #from the un-normalized ν message it is possible to extract the orginal-message 
             #normalization z_i→j 
             # needed for the computation of the Bethe Free energy
@@ -83,7 +83,7 @@ function sweep!(M)
             update_μ!(M,e,sij,sji)  
             e = mod(e,N) + 1
         end
-        zψi = calculate_belief!(M,l,neighbours,xi0,oi,ti_obs)
+        zψi = calculate_belief!(M,l,neighbours,xi0,oi,ci,ti_obs)
         Fψi += (0.5 * d - 1) * log(zψi)  
     end
     return (Fψi - 0.5 * F_itoj) / N

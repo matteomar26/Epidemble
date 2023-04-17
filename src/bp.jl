@@ -3,12 +3,16 @@ using Distributions,UnPack,OffsetArrays
 
 popsize(M) = size(M.belief,3)
 
-function obs(M, ti, τi, oi, ti_obs) 
-    return oi ? (((ti <= ti_obs) == (τi <= ti_obs)) ? 1.0 - M.fr : M.fr) : 1.0
+function obs(M, ti, τi, oi, ci, ti_obs) 
+    if ci 
+        return oi ? (((ti <= ti_obs) == !(τi <= ti_obs)) ? 1.0 - M.fr : M.fr) : 1.0
+    else 
+        return oi ? (((ti <= ti_obs) == (τi <= ti_obs)) ? 1.0 - M.fr : M.fr) : 1.0
+    end
 end
 
 
-function calculate_ν!(M,neighbours,xi0,oi,ti_obs)
+function calculate_ν!(M,neighbours,xi0,oi,ci,ti_obs)
     @unpack T,γi,Λ,μ,ν = M
     ν .= zero(eltype(ν))
     if xi0 == 0
@@ -17,7 +21,7 @@ function calculate_ν!(M,neighbours,xi0,oi,ti_obs)
                 #first we check consistency between
                 # the planted time τi and the inferred 
                 #time ti by checking the observation constraint
-                ξ = obs(M,ti,τi,oi,ti_obs)
+                ξ = obs(M,ti,τi,oi,ci,ti_obs)
                 if ξ == 0.0 #if the observation is NOT satisfied
                     continue  # ν = 0
                 end
@@ -55,7 +59,7 @@ function calculate_ν!(M,neighbours,xi0,oi,ti_obs)
 
         for tj = 0:T+1
             for ti = 0:T+1
-                ξ = obs(M,ti,0,oi,ti_obs)
+                ξ = obs(M,ti,0,oi,ci,ti_obs)
                 if ξ == 0.0  #if the observation is NOT satisfied
                     continue
                 end
@@ -83,7 +87,7 @@ function calculate_ν!(M,neighbours,xi0,oi,ti_obs)
 end
 
 
-function calculate_belief!(M,l,neighbours,xi0,oi,ti_obs) 
+function calculate_belief!(M,l,neighbours,xi0,oi,ci,ti_obs) 
     @unpack T, belief, γi, μ = M
     belief[:,:,l] .= zero(eltype(belief))
     if xi0 == 0
@@ -92,7 +96,7 @@ function calculate_belief!(M,l,neighbours,xi0,oi,ti_obs)
                 #first we check consistency between
                 # the planted time τi and the inferred 
                 #time ti by checking the observation constraint
-                ξ = obs(M,ti,τi,oi,ti_obs)
+                ξ = obs(M,ti,τi,oi,ci,ti_obs)
                 if ξ == 0.0 #if the observation is NOT satisfied
                     continue  # ν = 0
                 end
@@ -126,7 +130,7 @@ function calculate_belief!(M,l,neighbours,xi0,oi,ti_obs)
         # so we separated the cases
 
         for ti = 0:T+1
-            ξ = obs(M,ti,0,oi,ti_obs)
+            ξ = obs(M,ti,0,oi,ci,ti_obs)
             if ξ == 0.0  #if the observation is NOT satisfied
                 continue
             end
@@ -163,15 +167,16 @@ residual(d::Dirac) = Dirac(d.value - 1) #residual degree of rr distribution (del
 residual(d::DiscreteNonParametric) = DiscreteNonParametric(support(d) .- 1, (probs(d) .* support(d)) / sum(probs(d) .* support(d)))
 residual(d::DiscreteUniform) = Dirac(0)
 
-function rand_disorder(γp, λp, dist, dilution, Trange)
+function rand_disorder(γp, λp, dist, dilution, fr, Trange)
     r = 1.0 / log(1-λp) #random number to generate the delays
     sij = floor(Int,log(rand())*r) + 1
     sji = floor(Int,log(rand())*r) + 1 # infection delay
     xi0 = (rand() < γp); #zero patient
     d = rand(dist) #parameter of the degree distribution
     oi = rand() > dilution # oi = 1 if the particle is observed, oi = 0 if the particle is not observed 
+    ci = rand() < fr #ci is the corruption bit. If ci==1 then the observation is corrupted (i.e. is flipped)
     ti_obs = rand(Trange) 
-    return xi0, sij, sji, d, oi, ti_obs
+    return xi0, sij, sji, d, oi, ci, ti_obs
 end
 
 
