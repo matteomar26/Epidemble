@@ -1,7 +1,7 @@
 using PyCall
 
 @pyimport sib
-function sibyl(N, T, Λ, O, γ, λ ; maxit = 400, tol = 1e-14)
+function sibyl(N, T, Λ, O, γ, λ ; maxit = 400, tol = 1e-14, learn=false)
     
     contacts = [(i-1,j-1,t, λ) for t in 1:T for (i,j,v) in zip(findnz(Λ.A)...)];
     obs = [[(i,-1,t) for t=1:T for i=0:N-1];
@@ -13,18 +13,20 @@ function sibyl(N, T, Λ, O, γ, λ ; maxit = 400, tol = 1e-14)
     psus = prob_sus * (1 - pseed)
     params = sib.Params(prob_r=sib.Exponential(mu=0), pseed=pseed, psus=psus,pautoinf=1e-10)
     f = sib.FactorGraph(contacts=contacts, observations=obs, params=params)
-    sib.iterate(f, maxit=maxit,tol=tol)
-    sib.iterate(f, maxit=maxit, damping=0.5, tol=tol)
-    sib.iterate(f, maxit=maxit, damping=0.9, tol=tol)
+    sib.iterate(f, maxit=maxit,tol=tol ; learn)
+    sib.iterate(f, maxit=maxit, damping=0.5, tol=tol ; learn)
+    sib.iterate(f, maxit=maxit, damping=0.9, tol=tol ; learn)
     p_sib=[collect(n.bt) for n in f.nodes]
     m_sib = zeros(N, T)
+    dλ = 0.0
     for i=1:N
         m_sib[i,1] = p_sib[i][1] 
+        dλ += f.nodes[i].df_i[1] #accumulate derivative on lambda
         for t=2:T
             m_sib[i,t] = m_sib[i,t-1] + p_sib[i][t]
         end
     end 
-    return m_sib
+    return m_sib, dλ/N
 end
 
 function tpr(xtrue, rank) 
