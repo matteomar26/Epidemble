@@ -49,7 +49,10 @@ function avg_err(b)
     return avg_bel, err_bel
 end
 
-FatTail(support,k) = DiscreteNonParametric(support, normalize!(1 ./ support .^ k, 1.0))
+function FatTail(support::UnitRange{Int64}, exponent::Int64)
+    p = 1 ./ collect(support) .^ exponent
+    return DiscreteNonParametric(collect(support), p / sum(p))
+end
 
 
 function sweep!(M)
