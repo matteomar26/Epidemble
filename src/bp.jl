@@ -11,6 +11,10 @@ function obs(M, ti, τi, oi, ci, ti_obs)
     end
 end
 
+function obs(M, ti, τi, oi, ci, ti_obs) 
+    plant_o = ci ? τi > ti_obs : τi <= ti_obs
+    return oi ? (((ti <= ti_obs) == plant_o) ? 1.0 - M.fr : M.fr) : 1.0
+end
 
 function calculate_ν!(M,neighbours,xi0,oi,ci,ti_obs)
     @unpack T,γi,Λ,μ,ν = M

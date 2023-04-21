@@ -44,7 +44,8 @@ the 24 th is like 23rd but with scattered 0:T observations and 0 dilution.
 the 25 th is like 24th but with OPTIMAL BAYES  
 the 26 th is like 1st but with larger N (copy4)
 the 27th is like 14th but with larger totiters = 400 (copy2)
+the 28th is fr vs dilution at fixed lambda=0.2, gamma=0.03 fr = 0.0,0.5, dil = 0.0,1.0
 
 
-
-to check (copy: 2 RSB , 4 ens_vs_sibyl,  6 rr, 8 ft)
+to check (copy: 2 RSB , 4 ens_vs_sibyl)
+to plot: ft, rr, fr, 

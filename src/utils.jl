@@ -8,7 +8,7 @@ function save_values!(inf_out,M,conv,count_obs)
     inf_out[3*T + 5 : 4*T + 5] .= MSE(marg)
     inf_out[4*T + 6] = conv[1] |> real #free energy 
     inf_out[4*T + 7] = M.λi |> real 
-    inf_out[4*T + 8] = M.γi |> real  
+    inf_out[4*T + 8] = M.γi |> real
 end
 
 
@@ -22,6 +22,20 @@ function inf_vs_dil_optimal(γ, λRange, N, T, degree_dist, fr , dilRange ; tot_
         M = ParametricModel(N = N, T = T, γp = γp, λp = λp, γi=γi, λi=λi, fr=fr, dilution=dilution, distribution=degree_dist) ;
         conv = pop_dynamics(M, tot_iterations = tot_iterations)
         save_values!(@view(inf_out[λcount,dilcount,:]),M,conv,count_obs)
+    end
+    return inf_out
+end
+
+function fr_vs_dil_optimal(γ, λ, N, T, degree_dist, frRange , dilRange ; tot_iterations = 1, count_obs = false)
+    inf_out = zeros(length(frRange),length(dilRange), 4*T + 8) # 2 value for conv and fe and 4(T+1) values for the AUC,overlap,L1,MSE
+    Threads.@threads for (frcount,dilcount) in collect(product(1:length(frRange),1:length(dilRange)))
+        λi = λp = λ
+        dilution = dilRange[dilcount]
+        fr = frRange[frcount]
+        γi = γp = γ
+        M = ParametricModel(N = N, T = T, γp = γp, λp = λp, γi=γi, λi=λi, fr=fr, dilution=dilution, distribution=degree_dist) ;
+        conv = pop_dynamics(M, tot_iterations = tot_iterations)
+        save_values!(@view(inf_out[frcount,dilcount,:]),M,conv,count_obs)
     end
     return inf_out
 end

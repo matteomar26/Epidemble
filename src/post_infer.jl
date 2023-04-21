@@ -49,8 +49,8 @@ function avg_err(b)
     return avg_bel, err_bel
 end
 
-function FatTail(support::UnitRange{Int64}, exponent::Int64)
-    p = 1 ./ collect(support) .^ exponent
+function FatTail(support::UnitRange{Int64}, exponent,a)
+    p = 1 ./ (collect(support) .^ exponent .+ a)
     return DiscreteNonParametric(collect(support), p / sum(p))
 end
 
