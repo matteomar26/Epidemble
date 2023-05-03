@@ -1,7 +1,7 @@
 using PyCall
 
 @pyimport sib
-function sibyl(N, T, Λ, O, γ, λ ; maxit = 400, tol = 1e-14, learn=false)
+function sibyl(N, T, Λ, O, γ, λ ; maxit = 400, tol = 1e-14)
     
     contacts = [(i-1,j-1,t, λ) for t in 1:T for (i,j,v) in zip(findnz(Λ.A)...)];
     obs = [[(i,-1,t) for t=1:T for i=0:N-1];
@@ -13,8 +13,8 @@ function sibyl(N, T, Λ, O, γ, λ ; maxit = 400, tol = 1e-14, learn=false)
     psus = prob_sus * (1 - pseed)
     params = sib.Params(prob_r=sib.Exponential(mu=0), pseed=pseed, psus=psus,pautoinf=1e-10)
     f = sib.FactorGraph(contacts=contacts, observations=obs, params=params)
-    sib.iterate(f, maxit=maxit,tol=tol ; learn)
-    #sib.iterate(f, maxit=maxit, damping=0.5, tol=tol ; learn)
+    sib.iterate(f, maxit=maxit,tol=tol)
+    sib.iterate(f, maxit=maxit, damping=0.5, tol=tol)
     #sib.iterate(f, maxit=maxit, damping=0.9, tol=tol ; learn)
     p_sib=[collect(n.bt) for n in f.nodes]
     m_sib = zeros(N, T)
@@ -27,10 +27,11 @@ function sibyl(N, T, Λ, O, γ, λ ; maxit = 400, tol = 1e-14, learn=false)
         end
     end
     
-    return m_sib, dλ/N
+    return m_sib
 end
 
 function sibylHyper(N, T, Λ, O, γ, λ ; iters = 40, tol = 1e-14, learn=false,eta_learn=0.03)
+    @assert iters > 5 "give at least 6 iterations to learn"
     Infsteps = zeros(iters,2)
     obs = [[(i,-1,t) for t=1:T for i=0:N-1];
            [(i-1,s,t) for (i,s,t,p) in O]]
@@ -39,23 +40,19 @@ function sibylHyper(N, T, Λ, O, γ, λ ; iters = 40, tol = 1e-14, learn=false,e
     prob_seed = γ
     pseed = prob_seed / (2 - prob_seed)
     psus = prob_sus * (1 - pseed)
-    params = sib.Params(prob_r=sib.Exponential(mu=0), pseed=pseed, psus=psus,pautoinf=1e-10)
-    contacts = [(i-1,j-1,t, λ) for t in 1:T for (i,j,v) in zip(findnz(Λ.A)...)];
+    params = sib.Params(prob_r=sib.Exponential(mu=0),pseed=pseed, psus=psus,pautoinf=1e-10)
+    contacts = [(i-1,j-1,t, 1.0) for t in 1:T for (i,j,v) in zip(findnz(Λ.A)...)];
     f = sib.FactorGraph(contacts=contacts, observations=obs, params=params)
-    sib.iterate(f, maxit=5,tol=1e-10 ; learn)
     m_sib = zeros(N, T)
     for st = 1:iters
-        prob_seed = γ
-        pseed = prob_seed / (2 - prob_seed)
+        prob_seed = γ ; pseed = prob_seed / (2 - prob_seed)  
         psus = prob_sus * (1 - pseed)
-        params = sib.Params(prob_r=sib.Exponential(mu=0), pseed=pseed, psus=psus,pautoinf=1e-10)
-        contacts = [(i-1,j-1,t, λ) for t in 1:T for (i,j,v) in zip(findnz(Λ.A)...)];
-        #@show f.contacts == contacts
-        f.contacts .= contacts
-        f.Params .= params
+        f.params.prob_i.p = λ
+        f.params.pseed = pseed
+        f.params.psus = psus
         sib.iterate(f, maxit=1,tol=1e-10 ; learn)
         p_sib=[collect(n.bt) for n in f.nodes]
-        if (learn == true)
+        if (learn == true && st > 5)
             dλ = sum(f.nodes[i].df_i[1] for i = 1:N, init=0.0) #accumulate derivative on lambda
             λ += abs(λ) * eta_learn * sign(dλ) #update lambda
             λ = clamp(λ,0.0,1.0) #clamp lambda
@@ -92,6 +89,16 @@ function AUROC(ROC)
         AU += ROC[2][t] * (ROC[1][t+1] - ROC[1][t])
     end
     return AU
+end
+
+function siMSE(x, p) #the mmse at fixed time
+    T = size(x,2)
+    N = size(x,1)
+    mse = zeros(T)
+    for t = 1:T
+        mse[t] = sum((x[:,t] .- p[:,t]) .^ 2)/N
+    end
+    return mse
 end
 
 function sample!(x, G, λi, γi) 
