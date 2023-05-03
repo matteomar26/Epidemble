@@ -89,7 +89,7 @@ function sweep!(M)
     return (Fψi - 0.5 * F_itoj) / N
 end
 
-function pop_dynamics(M; tot_iterations = 5, tol = 1e-10, eta = 0.0, infer_lam=false, infer_gam = false)
+function pop_dynamics(M; tot_iterations = 5, tol = 1e-10, eta = 0.0, infer_lam=false, infer_gam = false,nonlearn_iters=10)
     N, T, F = popsize(M), M.T, zero(M.λi)
     lam_window = zeros(10)
     gam_window = zeros(10)
@@ -100,8 +100,8 @@ function pop_dynamics(M; tot_iterations = 5, tol = 1e-10, eta = 0.0, infer_lam=f
         avg_old, err_old = avg_err(M.belief |> real)
         F = sweep!(M)
         avg_new, err_new = avg_err(M.belief |> real)
-        infer_lam = check_prior(iterations, infer_lam, lam_window, eta)
-        infer_gam = check_prior(iterations, infer_gam, gam_window, eta)
+        infer_lam = check_prior(iterations, infer_lam, lam_window, eta, nonlearn_iters)
+        infer_gam = check_prior(iterations, infer_gam, gam_window, eta, nonlearn_iters)
         if (sum(abs.(avg_new .- avg_old) .<= (tol .+ 0.3 .* (err_old .+ err_new))) == length(avg_new)) 
             return F, iterations
         end
@@ -111,8 +111,8 @@ function pop_dynamics(M; tot_iterations = 5, tol = 1e-10, eta = 0.0, infer_lam=f
     return F,tot_iterations
 end
 
-function check_prior(iterations, infer, window, eta)
-    if (iterations >= 10 && infer)
+function check_prior(iterations, infer, window, eta,nonlearn)
+    if (iterations >= nonlearn && infer)
         avg = sum(window) / 10
         err = sqrt(sum(window .^ 2)/10 - avg ^ 2)
         if (err/avg <= eta) 
