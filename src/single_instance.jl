@@ -139,3 +139,22 @@ function makeGraph(Ngraph,degree_dist::DiscreteNonParametric)
     end
     return random_configuration_model(Ngraph,k) |> IndexedBiDiGraph 
 end
+
+function S_subgraph(G,x)
+    Ngraph = nv(G)
+    S = sparse(fill(false,Ngraph,Ngraph))
+    for i = 1:Ngraph
+        if x[i,end-1] == 0 
+            for j in outedges(G,i)
+                if x[j.dst] == 0
+                    S[i,j.dst] = true
+                    S[j.dst,i] = true
+                end
+            end
+        end
+    end
+    return IndexedGraph(S)
+end
+function nontrivial_conn(G)
+    sum(length.(connected_components(G)) .> 1)
+end
