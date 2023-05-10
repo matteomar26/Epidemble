@@ -45,7 +45,9 @@ the 25 th is like 24th but with OPTIMAL BAYES
 the 26 th is like 1st but with larger N (copy4)
 the 27th is like 14th but with larger totiters = 400 (copy2)
 the 28th is fr vs dilution at fixed lambda=0.2, gamma=0.03 fr = 0.0,0.5, dil = 0.0,1.0
+the 29th is fr vs dilution at fixed lambda=0.03, gamma=0.03 fr = 0.0,0.5, dil = 0.0,1.0
+the 30th collection is optimal in gamma and lam with lamp = 0.9:1.0 gamp= 0.01:0.04  dil=0.0, d=3, N=100000 iters=300 AUC all Tobs = 8. 
+the 31th collection is like 30 but with N=200000, gamp = 0.01:0.025
 
 
-to check (copy: 2 RSB , 4 ens_vs_sibyl)
-to plot: ft, rr, fr, 
+to check copy 6 and copy 9
