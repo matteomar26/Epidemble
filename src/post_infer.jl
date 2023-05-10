@@ -45,7 +45,7 @@ function avg_err(b)
     N = size(b,3)
     T = size(b,1) - 2
     avg_bel = reshape(sum(sum(b,dims=2),dims=3) ./ (N*(T+2)),T+2) 
-    err_bel = sqrt.(reshape(sum(sum(b .^ 2,dims=2),dims=3) ./ (N * (T+2)),T+2) .- (avg_bel .^ 2)) ./ sqrt(N)
+    err_bel = sqrt.(reshape(sum(sum(b .^ 2,dims=2),dims=3) ./ (N * (T+2)),T+2) .- avg_bel .^ 2) ./ sqrt(N)
     return avg_bel, err_bel
 end
 
