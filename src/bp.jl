@@ -243,26 +243,47 @@ end
 
 function entropy(M) #this function computes the entropy by only modifying the nu messages
     N = popsize(M)
-    d = rand(M.distribution) 
-    msg = fill(zero(eltype(M.ν)),M.T + 2, M.T + 2, d)
+    T = M.T
     #we take the converged population and compute the entropy
-    #We need the messages on ti,tj. However on mu messages we already have summed over tj
-    #So we need to pass from mu to nu messages
-    for pos = 1:d # i compute each cavity marginal
-        xi0,sij,sji,d_res,oi,ci,ti_obs = rand_disorder(M.γp,M.λp,M.residual,M.dilution,M.fr,M.obs_range)
-        neighbours = rand(1:N,d_res)
-        calculate_ν!(M,neighbours,xi0,oi,ci,ti_obs)
-        #due to BP equations, the original factor-to-node msg is equal to node-to-factor msg
-        # since nu is almost the same to the original message, we just have to carefully
-        #trace over nu in order to get the inferred cavity marginals
-        inferred_times_msg!(msg,pos,M,M.ν,sji)
+    for i = 1:N
+        d = rand(M.distribution) 
+        msg = fill(zero(eltype(M.ν)),0:T+1, 0:T+1, d)
+        #We need the messages on ti,tj. However, on mu messages we already have summed over tj
+        #So we need to pass from mu to nu messages and again from nu to desired cavities
+        for pos = 1:d # compute each cavity marginal
+            xi0,sij,sji,d_res,oi,ci,ti_obs = rand_disorder(M.γp,M.λp,M.residual,M.dilution,M.fr,M.obs_range)
+            neighbours = rand(1:N,d_res)
+            calculate_ν!(M,neighbours,xi0,oi,ci,ti_obs)
+            #due to BP equations, the original factor-to-node msg is equal to node-to-factor msg
+            # since nu is almost the same to the original message, we just have to carefully
+            #trace over nu in order to get the inferred cavity marginals
+            inferred_times_msg!(msg,pos,M,M.ν,sji)
+        end
+        F∂i = fill(zero(eltype(M.ν)),0:T+1,0:d*(T+1),0:d*(T+1))
+        F∂i[:,0,0] .= one(eltype(M.ν))
+        F∂iold = fill(zero(eltype(M.ν)),0:T+1,0:d*(T+1),0:d*(T+1)) #temporary to use to update 
+        # now that we have the messages, we must compute the measure iteratively
+        for pos = 1:d
+            update_measure!(F∂i)
+        end
     end
-    # now that we have the messages, we must compute the measure iteratively
-    
+end
+
+function update_measure!(F∂i,F∂iold,pos,M)
+    T = M.T
+    for ti = 0:T+1
+        for S1 = 0:d*(T+1)
+            for S2 = 0:d*(T+1)
+                for tk = 0:T+1
+                    F∂i[ti,S1,S2] += msg[ti,tk,pos] * F∂iold[ti,S1 - (ti-tk-1)+,S2 - (ti-tk)+]
+                end
+            end
+        end
+    end
+    F∂iold .= F∂i
 end
 
 function psi(M,ti,S1,S2)
     seed = ti > 0 ? M.γi : one(M.γi) - M.γi
     return seed * ((1 - M.λi) ^ S1 - (1 <= ti <= M.T) * (1 - M.λi) ^ S2)
 end
-    
