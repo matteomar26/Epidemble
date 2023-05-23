@@ -185,16 +185,29 @@ end
 
 
 function edge_normalization(M,ν,sji)
+    # first we sum on ti and tj
     tmp = sum(sum(ν,dims=1),dims=2)
     norm = zero(eltype(ν))
     T = M.T
+    # for fixed taui and disorder sji it is possible to compute tauj for every sigma
+    # so we sum over tauj at each step of the cycle
     for taui = 0:T+1
         norm += max(0,taui-sji) * tmp[0,0,taui,0] + (taui-sji >= 0) * tmp[0,0,taui,1] + (T+2 - max(taui-sji+1,0)) * tmp[0,0,taui,2]
     end
     return norm
 end
 
-
+function inferred_times_msg(ms,pos,M,ν,sji)
+    T = M.T
+    ms[:,:,pos] .= zero(eltype(ν))
+    for ti = 0:T+1
+        for tj = 0:T+1
+            for taui = 0:T+1
+                ms[ti,tj,pos] += max(0,taui-sji) * ν[ti,tj,taui,0] + (taui-sji >= 0) * ν[ti,tj,taui,1] + (T+2 - max(taui-sji+1,0)) * ν[ti,tj,taui,2]
+            end
+        end
+    end
+end
 
 function update_μ!(M,l,sij,sji)
     @unpack T,Λ,μ,Paux,ν = M
@@ -227,3 +240,29 @@ function update_μ!(M,l,sij,sji)
         return
     end   
 end
+
+function entropy(M) #this function computes the entropy by only modifying the nu messages
+    N = popsize(M)
+    d = rand(M.distribution) 
+    msg = fill(zero(eltype(M.ν)),M.T + 2, M.T + 2, d)
+    #we take the converged population and compute the entropy
+    #We need the messages on ti,tj. However on mu messages we already have summed over tj
+    #So we need to pass from mu to nu messages
+    for pos = 1:d # i compute each cavity marginal
+        xi0,sij,sji,d_res,oi,ci,ti_obs = rand_disorder(M.γp,M.λp,M.residual,M.dilution,M.fr,M.obs_range)
+        neighbours = rand(1:N,d_res)
+        calculate_ν!(M,neighbours,xi0,oi,ci,ti_obs)
+        #due to BP equations, the original factor-to-node msg is equal to node-to-factor msg
+        # since nu is almost the same to the original message, we just have to carefully
+        #trace over nu in order to get the inferred cavity marginals
+        inferred_times_msg!(msg,pos,M,M.ν,sji)
+    end
+    # now that we have the messages, we must compute the measure iteratively
+    
+end
+
+function psi(M,ti,S1,S2)
+    seed = ti > 0 ? M.γi : one(M.γi) - M.γi
+    return seed * ((1 - M.λi) ^ S1 - (1 <= ti <= M.T) * (1 - M.λi) ^ S2)
+end
+    
