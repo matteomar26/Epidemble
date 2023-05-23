@@ -142,19 +142,24 @@ end
 
 function S_subgraph(G,x)
     Ngraph = nv(G)
-    S = sparse(fill(false,Ngraph,Ngraph))
+    number = 0 
+    S = SimpleGraph(Ngraph)
     for i = 1:Ngraph
-        if x[i,end-1] == 0 
-            for j in outedges(G,i)
-                if x[j.dst] == 0
-                    S[i,j.dst] = true
-                    S[j.dst,i] = true
+        if x[i,end-1] == 0
+            if length(outedges(G,i)) == 0
+                number += 1
+            else
+                for j in outedges(G,i)
+                    if x[j.dst] == 0
+                        add_edge!(S,i,j.dst)
+                    end
                 end
             end
         end
     end
-    return IndexedGraph(S)
+    return nontrivial_conn(S) + number
 end
+    
 function nontrivial_conn(G)
-    sum(length.(connected_components(G)) .> 1)
+    sum(length(x) > 1 for x in connected_components(G))
 end
