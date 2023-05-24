@@ -197,7 +197,7 @@ function edge_normalization(M,ν,sji)
     return norm
 end
 
-function inferred_times_msg(ms,pos,M,ν,sji)
+function inferred_times_msg!(ms,pos,M,ν,sji)
     T = M.T
     ms[:,:,pos] .= zero(eltype(ν))
     for ti = 0:T+1
@@ -241,10 +241,12 @@ function update_μ!(M,l,sij,sji)
     end   
 end
 
-function entropy(M) #this function computes the entropy by only modifying the nu messages
+function energy(M) #this function computes the energy by only modifying the nu messages
+    @assert M.fr == 0.0 "function usable only for fr=0"
     N = popsize(M)
     T = M.T
-    #we take the converged population and compute the entropy
+    #we take the converged population and compute the energy
+    u = zero(eltype(M.ν))
     for i = 1:N
         d = rand(M.distribution) 
         msg = fill(zero(eltype(M.ν)),0:T+1, 0:T+1, d)
@@ -259,31 +261,50 @@ function entropy(M) #this function computes the entropy by only modifying the nu
             #trace over nu in order to get the inferred cavity marginals
             inferred_times_msg!(msg,pos,M,M.ν,sji)
         end
-        F∂i = fill(zero(eltype(M.ν)),0:T+1,0:d*(T+1),0:d*(T+1))
+        F∂i = fill(zero(eltype(M.ν)),0:T+1,0:d*T,0:d)
         F∂i[:,0,0] .= one(eltype(M.ν))
-        F∂iold = fill(zero(eltype(M.ν)),0:T+1,0:d*(T+1),0:d*(T+1)) #temporary to use to update 
+        F∂iold = fill(zero(eltype(M.ν)),0:T+1,0:d*T,0:d) #temporary to use to update 
         # now that we have the messages, we must compute the measure iteratively
         for pos = 1:d
-            update_measure!(F∂i)
+            update_measure!(F∂i,F∂iold,pos,d,msg,M)
         end
+        # we finally evaluate the energy per site
+        z_psi = zero(eltype(M.ν))
+        u_psi = zero(eltype(M.ν))
+        for ti = 0:T+1
+            for S1 = 0:d*T
+                for S2 = 0:d
+                    if (F∂i[ti,S1,S2] != zero(eltype(F∂i))) && (psi(M,ti,S1,S2) != zero(eltype(F∂i))) 
+                        z_psi += psi(M,ti,S1,S2) * F∂i[ti,S1,S2]
+                        u_psi += psi(M,ti,S1,S2) * log(psi(M,ti,S1,S2)) *  F∂i[ti,S1,S2]
+                    end
+                end
+            end
+        end
+        #@show u_psi, z_psi
+        u -= u_psi / z_psi
     end
+    return u/N
 end
 
-function update_measure!(F∂i,F∂iold,pos,M)
+function update_measure!(F∂i,F∂iold,pos,d,msg,M)
     T = M.T
+    F∂iold .= F∂i
+    F∂i .= zero(eltype(F∂i))
     for ti = 0:T+1
-        for S1 = 0:d*(T+1)
-            for S2 = 0:d*(T+1)
-                for tk = 0:T+1
-                    F∂i[ti,S1,S2] += msg[ti,tk,pos] * F∂iold[ti,S1 - (ti-tk-1)+,S2 - (ti-tk)+]
+        for tk = 0:T+1
+            tik1 = ((ti-tk-1) >= 0) ? (ti-tk-1) : 0
+            θik = ((ti-tk-1) >= 0) ? 1 : 0
+            for S1 = tik1 : d * T
+                for S2 = θik : d
+                    F∂i[ti,S1,S2] += msg[ti,tk,pos] * F∂iold[ti,S1 - tik1, S2 - θik]
                 end
             end
         end
     end
-    F∂iold .= F∂i
 end
 
 function psi(M,ti,S1,S2)
     seed = ti > 0 ? M.γi : one(M.γi) - M.γi
-    return seed * ((1 - M.λi) ^ S1 - (1 <= ti <= M.T) * (1 - M.λi) ^ S2)
+    return seed * ((one(M.λi) - M.λi) ^ S1) * (1 - (1 <= ti <= M.T) * (one(M.λi) - M.λi) ^ S2)
 end
