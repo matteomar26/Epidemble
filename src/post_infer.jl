@@ -84,7 +84,7 @@ function sweep!(M)
             e = mod(e,N) + 1
         end
         zψi = calculate_belief!(M,l,neighbours,xi0,oi,ci,ti_obs)
-        Fψi += (0.5 * d - 1) * log(zψi)  
+        Fψi += (0.5 * d - 1) * log(zψi) 
     end
     return (Fψi - 0.5 * F_itoj) / N
 end
@@ -120,4 +120,35 @@ function check_prior(iterations, infer, window, eta,nonlearn)
         end
     end
     return infer
+end
+
+function prior_entropy(M)
+    N = popsize(M)
+    s = 0
+    r = 1.0 / log(1-M.λp)
+    T = M.T
+    planted_times = rand(0:T+1,N)
+    for i = 1:N
+        xi0 = (rand() < M.γp); #zero patient
+        d = rand(M.distribution) # number of neighbours
+        neighb = rand(1:N,d)
+        #fill the entering delays
+        delays_out = zeros(d)
+        for j in 1:d
+            delays_out[j] = floor(Int,log(rand())*r) + 1 
+        end
+        #compute the new planted time
+        ti = (!xi0) * min(minimum(planted_times[neighb] .+ delays_out),T+1) 
+        S1 = S2 = 0
+        for j in 1:d
+            tj = planted_times[j]
+            theta_ij = ((ti - tj - 1) >= 0 )
+            S1 += theta_ij ? (ti - tj - 1) : 0
+            S2 += theta_ij
+        end
+        psi(M,ti,S1,S2)
+        s -= log(psi(M,ti,S1,S2))
+        planted_times[i] = ti
+    end
+    return s/N
 end
