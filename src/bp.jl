@@ -18,7 +18,7 @@ end
 
 function calculate_ν!(M,neighbours,xi0,oi,ci,ti_obs)
     @unpack T,γi,Λ,μ,ν = M
-    ν .= zero(eltype(ν))
+    ν .= 0
     if xi0 == 0
         for τi = 1:T+1
             for ti = 0:T+1
@@ -33,8 +33,8 @@ function calculate_ν!(M,neighbours,xi0,oi,ci,ti_obs)
                 # we precaclulate the prior seed probability
                 # of the individual and the value of phi function 
                 # which is 1 if 0<ti<T+1 and 0 if ti=0,T+1
-                seed = (ti==0 ? γi : (1-γi) )
-                phi = (ti==0 || ti==T+1) ? 0 : 1
+                seed = ti == 0 ? γi : 1 - γi
+                phi = ti == 0 || ti == T + 1 ? 0 : 1
                 #now we calculate the four products over
                 # μ functions that we need to put in the
                 # expression of ν. We call them m1,..,m4
@@ -197,13 +197,30 @@ function edge_normalization(M,ν,sji)
     return norm
 end
 
-function inferred_times_msg!(ms,pos,M,ν,sji)
+function Γ(Σ,ν,ti,tj,τj,sji,sij)
+    return Σ[ti,tj,min(τj+sji-1,T+1),2] - (τj-sij>=0)*Σ[ti,tj,max(τj-sij,0),2]+(τj+sji<=T+1)*ν[ti,tj,min(τj+sji,T+1),1] + Σ[ti,tj,T+1,0] - Σ[ti,tj,min(τj+sji,T+1),0]
+end
+
+function inferred_times_msg!(ms,pos,M,ν,sij,sji,xi0)
     T = M.T
-    ms[:,:,pos] .= zero(eltype(ν))
+    ms[:,:,:,:,pos] .= 0
+    Σ = cumsum(ν,dims=3)
+    #ti,tj,taui,v
     for ti = 0:T+1
         for tj = 0:T+1
-            for taui = 0:T+1
-                ms[ti,tj,pos] += max(0,taui-sji) * ν[ti,tj,taui,0] + (taui-sji >= 0) * ν[ti,tj,taui,1] + (T+2 - max(taui-sji+1,0)) * ν[ti,tj,taui,2]
+            if xi0 == 1
+                taui = 0
+                f = Γ(Σ,ν,tj,ti,taui,sij,sji) # first term of the sum
+                s = (taui-sji>=0) * ν[tj,ti,max(taui-sji,0),2] # second term of the sum
+                t = (taui-sji-1>=0) * Σ[tj,ti,max(taui-sji-1,0),2] # third term of the sum
+                ms[ti,tj,taui,0,pos] = f + s + t
+            elseif xi0 == 0
+                for taui = 0:T+1
+                    f = Γ(Σ,ν,tj,ti,taui,sij,sji) # first term of the sum
+                    s = (taui-sji>=0) * ν[tj,ti,max(taui-sji,0),2] # second term of the sum
+                    ms[ti,tj,taui,1,pos] = f + s
+                    ms[ti,tj,taui,2,pos] = - (taui<T+1)*f
+                end
             end
         end
     end
@@ -211,7 +228,7 @@ end
 
 function update_μ!(M,l,sij,sji)
     @unpack T,Λ,μ,Paux,ν = M
-    μ[:,:,:,:,l] .= zero(eltype(μ))
+    μ[:,:,:,:,l] .= 0
     # First we calculate and store the cumulated of ν with respect to 
     # planted time, i.e. the third argument. We call Σ this cumulated 
     Σ = cumsum(ν,dims=3)
@@ -219,7 +236,7 @@ function update_μ!(M,l,sij,sji)
         for τj = 0:T+1
             #First of all we set to 0 the function we want to update
             #because later we want to sum over it
-            Paux .= zero(eltype(Paux))
+            Paux .= 0
             for ti = 0:T+1
                 #we pre calculate the value of the summed part
                 # so not to calculate it twice
@@ -235,7 +252,7 @@ function update_μ!(M,l,sij,sji)
         end
     end
     S = sum(@view μ[:,:,:,:,l])
-    if S == zero(eltype(μ))
+    if iszero(S)
         println("sum-zero μ  at $(M.λi), $(M.γi)")
         return
     end   
@@ -248,40 +265,50 @@ function energy(M) #this function computes the energy by only modifying the nu m
     #we take the converged population and compute the energy
     u = zero(eltype(M.ν))
     for i = 1:N
-        d = rand(M.distribution) 
-        msg = fill(zero(eltype(M.ν)),0:T+1, 0:T+1, d)
+        xi0,sij_,sji_,d,oi,ci,ti_obs = rand_disorder(M.γp,M.λp,M.distribution,M.dilution,M.fr,M.obs_range)
+        msg = fill(zero(eltype(M.ν)),0:T+1, 0:T+1, 0:T+1, 0:2, d)
         #We need the messages on ti,tj. However, on mu messages we already have summed over tj
         #So we need to pass from mu to nu messages and again from nu to desired cavities
         for pos = 1:d # compute each cavity marginal
-            xi0,sij,sji,d_res,oi,ci,ti_obs = rand_disorder(M.γp,M.λp,M.residual,M.dilution,M.fr,M.obs_range)
-            neighbours = rand(1:N,d_res)
-            calculate_ν!(M,neighbours,xi0,oi,ci,ti_obs)
+            xj0,sji,sij,d_res,oj,cj,tj_obs = rand_disorder(M.γp,M.λp,M.residual,M.dilution,M.fr,M.obs_range)
+            cav_neighbours = rand(1:N,d_res)
+            calculate_ν!(M,cav_neighbours,xj0,oj,cj,tj_obs)
             #due to BP equations, the original factor-to-node msg is equal to node-to-factor msg
-            # since nu is almost the same to the original message, we just have to carefully
+            # since nu is almost the same to the original message, we just have to
             #trace over nu in order to get the inferred cavity marginals
-            inferred_times_msg!(msg,pos,M,M.ν,sji)
+            update_μ!(M,pos,sji,sij)  
+            inferred_times_msg!(msg,pos,M,M.ν,sji,sij,xi0)
         end
-        F∂i = fill(zero(eltype(M.ν)),0:T+1,0:d*T,0:d)
-        F∂i[:,0,0] .= one(eltype(M.ν))
-        F∂iold = fill(zero(eltype(M.ν)),0:T+1,0:d*T,0:d) #temporary to use to update 
+        F∂i = fill(zero(eltype(M.ν)),0:T+1,0:d*T,0:d,0:2,0:T+1)
+        F∂i[:,0,0,:,:] .= 1
+        F∂iold = fill(zero(eltype(M.ν)),0:T+1,0:d*T,0:d,0:2,0:T+1) #tmp to use to update 
         # now that we have the messages, we must compute the measure iteratively
         for pos = 1:d
             update_measure!(F∂i,F∂iold,pos,d,msg,M)
         end
+        zψi = calculate_belief!(M,100,1:d,xi0,oi,ci,ti_obs)
         # we finally evaluate the energy per site
         z_psi = zero(eltype(M.ν))
         u_psi = zero(eltype(M.ν))
-        for ti = 0:T+1
-            for S1 = 0:d*T
-                for S2 = 0:d
-                    if (F∂i[ti,S1,S2] != zero(eltype(F∂i))) && (psi(M,ti,S1,S2) != zero(eltype(F∂i))) 
-                        z_psi += psi(M,ti,S1,S2) * F∂i[ti,S1,S2]
-                        u_psi += psi(M,ti,S1,S2) * log(psi(M,ti,S1,S2)) *  F∂i[ti,S1,S2]
+        for taui = 0:T+1
+            for ti = 0:T+1
+                ξ = obs(M,ti,taui,oi,ci,ti_obs)
+                if ξ == 0.0 
+                    continue 
+                end
+                for S1 = 0:d*T
+                    for S2 = 0:d
+                        for v = 0:2
+                            if !iszero(F∂i[ti,S1,S2,v,taui]) && !iszero(psi(M,ti,S1,S2)) 
+                                z_psi += psi(M,ti,S1,S2) * F∂i[ti,S1,S2,v,taui]
+                                u_psi += psi(M,ti,S1,S2) * log(psi(M,ti,S1,S2)) *  F∂i[ti,S1,S2,v,taui]
+                            end
+                        end
                     end
                 end
             end
         end
-        #@show u_psi, z_psi
+        @show zψi, z_psi
         u -= u_psi / z_psi
     end
     return u/N
@@ -290,14 +317,18 @@ end
 function update_measure!(F∂i,F∂iold,pos,d,msg,M)
     T = M.T
     F∂iold .= F∂i
-    F∂i .= zero(eltype(F∂i))
+    F∂i .= 0
     for ti = 0:T+1
         for tk = 0:T+1
-            tik1 = ((ti-tk-1) >= 0) ? (ti-tk-1) : 0
-            θik = ((ti-tk-1) >= 0) ? 1 : 0
+            θik = (ti - tk - 1 >= 0)
+            tik1 = θik ? (ti - tk - 1) : 0
             for S1 = tik1 : d * T
                 for S2 = θik : d
-                    F∂i[ti,S1,S2] += msg[ti,tk,pos] * F∂iold[ti,S1 - tik1, S2 - θik]
+                    for v = 0:2
+                        for taui = 0:T+1
+                            F∂i[ti,S1,S2,v,taui] += msg[ti,tk,taui,v,pos] .* F∂iold[ti,S1 - tik1, S2 - θik,v,taui]
+                        end
+                    end
                 end
             end
         end
@@ -305,6 +336,6 @@ function update_measure!(F∂i,F∂iold,pos,d,msg,M)
 end
 
 function psi(M,ti,S1,S2)
-    seed = ti > 0 ? M.γi : one(M.γi) - M.γi
-    return seed * ((one(M.λi) - M.λi) ^ S1) * (1 - (1 <= ti <= M.T) * (one(M.λi) - M.λi) ^ S2)
+    seed = ti > 0 ? M.γi : 1 - M.γi
+    return seed * ((1 - M.λi) ^ S1) * (1 - (1 <= ti <= M.T) * (1 - M.λi) ^ S2)
 end
