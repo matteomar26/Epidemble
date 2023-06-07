@@ -174,7 +174,8 @@ residual(d::Dirac) = Dirac(d.value - 1) #residual degree of rr distribution (del
 residual(d::DiscreteNonParametric) = DiscreteNonParametric(support(d) .- 1, (probs(d) .* support(d)) / sum(probs(d) .* support(d)))
 residual(d::DiscreteUniform) = Dirac(0)
 
-function rand_disorder(γp, λp, dist, dilution, fr, Trange)
+function rand_disorder(M, dist)
+    @unpack γp, λp, dilution, fr, obs_range
     r = 1.0 / log(1-λp) #random number to generate the delays
     sij = floor(Int,log(rand())*r) + 1
     sji = floor(Int,log(rand())*r) + 1 # infection delay
@@ -182,7 +183,7 @@ function rand_disorder(γp, λp, dist, dilution, fr, Trange)
     d = rand(dist) #parameter of the degree distribution
     oi = rand() > dilution # oi = 1 if the particle is observed, oi = 0 if the particle is not observed 
     ci = rand() < fr #ci is the corruption bit. If ci==1 then the observation is corrupted (i.e. is flipped)
-    ti_obs = rand(Trange) 
+    ti_obs = rand(obs_range) 
     return xi0, sij, sji, d, oi, ci, ti_obs
 end
 
@@ -269,12 +270,12 @@ function energy(M) #this function computes the energy by only modifying the nu m
     #we take the converged population and compute the energy
     u = zero(eltype(M.ν))
     for i = 1:N
-        xi0,sij_,sji_,d,oi,ci,ti_obs = rand_disorder(M.γp,M.λp,M.distribution,M.dilution,M.fr,M.obs_range)
+        xi0,sij_,sji_,d,oi,ci,ti_obs = rand_disorder(M,M.distribution)
         msg = fill(zero(eltype(M.ν)),0:T+1, 0:T+1, 0:T+1, 0:2, d)
         #We need the messages on ti,tj. However, on mu messages we already have summed over tj
         #So we need to pass from mu to nu messages and again from nu to desired cavities
         for pos = 1:d # compute each cavity marginal
-            xj0,sji,sij,d_res,oj,cj,tj_obs = rand_disorder(M.γp,M.λp,M.residual,M.dilution,M.fr,M.obs_range)
+            xj0,sji,sij,d_res,oj,cj,tj_obs = rand_disorder(M,M.residual)
             cav_neighbours = rand(1:N,d_res)
             calculate_ν!(M,cav_neighbours,xj0,oj,cj,tj_obs)
             #due to BP equations, the original factor-to-node msg is equal to node-to-factor msg
