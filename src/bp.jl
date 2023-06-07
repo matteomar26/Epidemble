@@ -4,17 +4,20 @@ using Distributions,UnPack,OffsetArrays
 popsize(M) = size(M.belief,3)
 
 function obs(M, ti, τi, oi, ci, ti_obs) 
-    if ci 
-        return oi ? (((ti <= ti_obs) == !(τi <= ti_obs)) ? 1.0 - M.fr : M.fr) : 1.0
-    else 
-        return oi ? (((ti <= ti_obs) == (τi <= ti_obs)) ? 1.0 - M.fr : M.fr) : 1.0
+    if M.field == true
+        return ti == τi
+    else
+        xt_inf = (ti <= ti_obs) 
+        xt_pla = (τi <= ti_obs)
+        
+        if ci 
+            return oi ? ((xt_inf == !xt_pla) ? 1.0 - M.fr : M.fr) : 1.0
+        else 
+            return oi ? ((xt_inf == xt_pla) ? 1.0 - M.fr : M.fr) : 1.0
+        end
     end
 end
 
-function obs(M, ti, τi, oi, ci, ti_obs) 
-    plant_o = ci ? τi > ti_obs : τi <= ti_obs
-    return oi ? (((ti <= ti_obs) == plant_o) ? 1.0 - M.fr : M.fr) : 1.0
-end
 
 function calculate_ν!(M,neighbours,xi0,oi,ci,ti_obs)
     @unpack T,γi,Λ,μ,ν = M
@@ -201,8 +204,9 @@ function Γ(Σ,ν,ti,tj,τj,sji,sij)
     return Σ[ti,tj,min(τj+sji-1,T+1),2] - (τj-sij>=0)*Σ[ti,tj,max(τj-sij,0),2]+(τj+sji<=T+1)*ν[ti,tj,min(τj+sji,T+1),1] + Σ[ti,tj,T+1,0] - Σ[ti,tj,min(τj+sji,T+1),0]
 end
 
-function inferred_times_msg!(ms,pos,M,ν,sij,sji,xi0)
+function inferred_times_msg!(ms,pos,M,sij,sji,xi0)
     T = M.T
+    ν = M.ν
     ms[:,:,:,:,pos] .= 0
     Σ = cumsum(ν,dims=3)
     #ti,tj,taui,v
@@ -215,11 +219,11 @@ function inferred_times_msg!(ms,pos,M,ν,sij,sji,xi0)
                 t = (taui-sji-1>=0) * Σ[tj,ti,max(taui-sji-1,0),2] # third term of the sum
                 ms[ti,tj,taui,0,pos] = f + s + t
             elseif xi0 == 0
-                for taui = 0:T+1
+                for taui = 1:T+1
                     f = Γ(Σ,ν,tj,ti,taui,sij,sji) # first term of the sum
                     s = (taui-sji>=0) * ν[tj,ti,max(taui-sji,0),2] # second term of the sum
                     ms[ti,tj,taui,1,pos] = f + s
-                    ms[ti,tj,taui,2,pos] = - (taui<T+1)*f
+                    ms[ti,tj,taui,2,pos] = - (taui < T+1) * f
                 end
             end
         end
@@ -276,8 +280,11 @@ function energy(M) #this function computes the energy by only modifying the nu m
             #due to BP equations, the original factor-to-node msg is equal to node-to-factor msg
             # since nu is almost the same to the original message, we just have to
             #trace over nu in order to get the inferred cavity marginals
-            update_μ!(M,pos,sji,sij)  
-            inferred_times_msg!(msg,pos,M,M.ν,sji,sij,xi0)
+            update_μ!(M,pos,sij,sji)  
+            inferred_times_msg!(msg,pos,M,sji,sij,xi0)
+           
+            @show xi0, xj0, sij, sji
+            @show sum(M.μ),sum(msg[:,:,:,:,pos])
         end
         F∂i = fill(zero(eltype(M.ν)),0:T+1,0:d*T,0:d,0:2,0:T+1)
         F∂i[:,0,0,:,:] .= 1
@@ -286,10 +293,55 @@ function energy(M) #this function computes the energy by only modifying the nu m
         for pos = 1:d
             update_measure!(F∂i,F∂iold,pos,d,msg,M)
         end
-        zψi = calculate_belief!(M,100,1:d,xi0,oi,ci,ti_obs)
+        zψi = calculate_belief!(M,i,1:d,xi0,oi,ci,ti_obs)
         # we finally evaluate the energy per site
         z_psi = zero(eltype(M.ν))
+        z_psi_deb = zero(eltype(M.ν))
         u_psi = zero(eltype(M.ν))
+        # exaustive trace for debug
+        for taui = 0:T+1
+            for ti = 0:T+1
+                ξ = obs(M,ti,taui,oi,ci,ti_obs)
+                if ξ == 0.0 
+                    continue 
+                end
+                for tj = 0:T+1
+                    for tk = 0:T+1
+                        θij = (ti - tj - 1) >= 0
+                        θik = (ti - tk - 1) >= 0
+                        tij = θij ? (ti - tj - 1) : 0
+                        tik = θik ? (ti - tk - 1) : 0
+                        S1 = tij + tik
+                        S2 = θij + θik
+                        for v = 0:2
+                            z_psi_deb += psi(M,ti,S1,S2) * msg[ti,tj,taui,v,1] * msg[ti,tk,taui,v,2] 
+                            #u_psi += psi(M,ti,S1,S2) * log(psi(M,ti,S1,S2)) *  F∂i[ti,S1,S2,v,taui]
+                        end
+                    end
+                end
+            end
+        end
+        #end of exaustive trace
+        # 1d exaustive trace for debug
+        #=for taui = 0:T+1
+            for ti = 0:T+1
+                ξ = obs(M,ti,taui,oi,ci,ti_obs)
+                if ξ == 0.0 
+                    continue 
+                end
+                for tj = 0:T+1
+                        θij = (ti - tj - 1) >= 0
+                        tij = θij ? (ti - tj - 1) : 0
+                        S1 = tij 
+                        S2 = θij 
+                        for v = 0:2
+                            z_psi_deb += psi(M,ti,S1,S2) * msg[ti,tj,taui,v,1] 
+                            #u_psi += psi(M,ti,S1,S2) * log(psi(M,ti,S1,S2)) *  F∂i[ti,S1,S2,v,taui]
+                        end
+                end
+            end
+        end=#
+        #end of exaustive trace
         for taui = 0:T+1
             for ti = 0:T+1
                 ξ = obs(M,ti,taui,oi,ci,ti_obs)
@@ -308,7 +360,7 @@ function energy(M) #this function computes the energy by only modifying the nu m
                 end
             end
         end
-        @show zψi, z_psi
+       # @show zψi, z_psi#, z_psi_deb
         u -= u_psi / z_psi
     end
     return u/N
@@ -326,7 +378,7 @@ function update_measure!(F∂i,F∂iold,pos,d,msg,M)
                 for S2 = θik : d
                     for v = 0:2
                         for taui = 0:T+1
-                            F∂i[ti,S1,S2,v,taui] += msg[ti,tk,taui,v,pos] .* F∂iold[ti,S1 - tik1, S2 - θik,v,taui]
+                            F∂i[ti,S1,S2,v,taui] += msg[ti,tk,taui,v,pos] * F∂iold[ti,S1 - tik1, S2 - θik,v,taui]
                         end
                     end
                 end
@@ -336,6 +388,6 @@ function update_measure!(F∂i,F∂iold,pos,d,msg,M)
 end
 
 function psi(M,ti,S1,S2)
-    seed = ti > 0 ? M.γi : 1 - M.γi
+    seed = (ti == 0 ? M.γi : 1 - M.γi)
     return seed * ((1 - M.λi) ^ S1) * (1 - (1 <= ti <= M.T) * (1 - M.λi) ^ S2)
 end
