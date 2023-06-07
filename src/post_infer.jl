@@ -15,16 +15,17 @@ mutable struct ParametricModel{D,D2,Taux,M,M1,M2,O,Tλ,MO}
     Λ::O
     obs_list::MO
     obs_range::UnitRange{Int64}
+    field::Bool
     
 end
 
-function ParametricModel(; N, T, γp, λp, γi=γp, λi=λp, fr=0.0, dilution=0.0, distribution, obs_range=T:T)
+function ParametricModel(; N, T, γp, λp, γi=γp, λi=λp, fr=0.0, dilution=0.0, distribution, obs_range=T:T,field=false)
     μ = fill(one(λi) / (6*(T+2)^2), 0:T+1, 0:1, 0:T+1, 0:2, 1:N)
     belief = fill(zero(λi), 0:T+1, 0:T+1, N)
     ν = fill(zero(λi), 0:T+1, 0:T+1, 0:T+1, 0:2)
     Paux = fill(zero(λi), 0:1, 0:2)
     Λ = OffsetArray([t <= 0 ? one(λi) : (1-λi)^t for t = -T-2:T+1], -T-2:T+1)
-    ParametricModel(T, γp, λp,γi, λi,Paux, μ, belief, ν,fr, dilution, distribution, residual(distribution), Λ,fill(false,N),obs_range)
+    ParametricModel(T, γp, λp,γi, λi,Paux, μ, belief, ν,fr, dilution, distribution, residual(distribution), Λ,fill(false,N),obs_range,field)
 end
 
 
@@ -108,7 +109,7 @@ function pop_dynamics(M; tot_iterations = 5, tol = 1e-10, eta = 0.0, infer_lam=f
         (infer_lam) && (update_lam!(M,F,eta))
         (infer_gam) && (update_gam!(M))
     end
-    return F,tot_iterations
+    return F |> real , tot_iterations
 end
 
 function check_prior(iterations, infer, window, eta,nonlearn)
@@ -128,27 +129,31 @@ function prior_entropy(M)
     r = 1.0 / log(1-M.λp)
     T = M.T
     planted_times = rand(0:T+1,N)
-    for i = 1:N
-        xi0 = (rand() < M.γp); #zero patient
-        d = rand(M.distribution) # number of neighbours
-        neighb = rand(1:N,d)
-        #fill the entering delays
-        delays_out = zeros(d)
-        for j in 1:d
-            delays_out[j] = floor(Int,log(rand())*r) + 1 
+    for iters = 1:10
+        s = 0
+        for i = 1:N
+            xi0 = (rand() < M.γp); #zero patient
+            d = rand(M.distribution) # number of neighbours
+            neighb = rand(1:N,d)
+            #fill the entering delays
+            delays_out = zeros(d)
+            for j in 1:d
+                delays_out[j] = floor(Int,log(rand())*r) + 1 
+            end
+            #compute the new planted time
+            ti = Int((!xi0) * min(minimum(planted_times[neighb] .+ delays_out),T+1)) 
+            S1 = S2 = 0
+            for j in 1:d
+                tj = planted_times[neighb[j]]
+                #@show tj
+                theta_ij = ((ti - tj - 1) >= 0 )
+                S1 += theta_ij ? (ti - tj - 1) : 0
+                S2 += theta_ij
+            end
+            #@show ti, S1, S2, psi(M,ti,S1,S2)
+            s -= log(psi(M,ti,S1,S2))
+            planted_times[i] = ti
         end
-        #compute the new planted time
-        ti = (!xi0) * min(minimum(planted_times[neighb] .+ delays_out),T+1) 
-        S1 = S2 = 0
-        for j in 1:d
-            tj = planted_times[j]
-            theta_ij = ((ti - tj - 1) >= 0 )
-            S1 += theta_ij ? (ti - tj - 1) : 0
-            S2 += theta_ij
-        end
-        psi(M,ti,S1,S2)
-        s -= log(psi(M,ti,S1,S2))
-        planted_times[i] = ti
     end
-    return s/N
+    return s/N,planted_times
 end
