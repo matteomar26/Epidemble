@@ -3,23 +3,25 @@ using Distributions,UnPack,OffsetArrays
 
 popsize(M) = size(M.belief,3)
 
-function obs(M, ti, τi, oi, ci, ti_obs) 
-    if M.field == true
+function obs(M, ti, τi, oi, sympt, ci, ti_obs) 
+    if M.field == true # option to align the BP solution to the informed state.
         return ti == τi
     else
         xt_inf = (ti <= ti_obs) 
         xt_pla = (τi <= ti_obs)
-        
-        if ci 
-            return oi ? ((xt_inf == !xt_pla) ? 1.0 - M.fr : M.fr) : 1.0
+        o = oi | (xt_pla & sympt) #the indiv is either observed random or because it is I and symptomatic
+        p_test = xt_inf ? (M.p_sympt_inf + M.p_test_inf * (1 - M.p_sympt_inf)) : M.p_test_inf * one(M.p_sympt_inf) #the one is to stabilize types
+        #@show sympt, oi, xt_pla
+        if ci #if ci=1 we see the opposite of the value xt_pla
+            return o ? (xt_inf == !xt_pla ? ((1.0 - M.fr) * p_test) : (M.fr * p_test)) : (1.0 - p_test)
         else 
-            return oi ? ((xt_inf == xt_pla) ? 1.0 - M.fr : M.fr) : 1.0
+            return o ? (xt_inf == xt_pla ? ((1.0 - M.fr) * p_test) : (M.fr * p_test)) : (1.0 - p_test)
         end
     end
 end
 
 
-function calculate_ν!(M,neighbours,xi0,oi,ci,ti_obs)
+function calculate_ν!(M,neighbours,xi0,oi,sympt,ci,ti_obs)
     @unpack T,γi,Λ,μ,ν = M
     ν .= 0
     if xi0 == 0
@@ -28,7 +30,7 @@ function calculate_ν!(M,neighbours,xi0,oi,ci,ti_obs)
                 #first we check consistency between
                 # the planted time τi and the inferred 
                 #time ti by checking the observation constraint
-                ξ = obs(M,ti,τi,oi,ci,ti_obs)
+                ξ = obs(M,ti,τi,oi,sympt,ci,ti_obs)
                 if ξ == 0.0 #if the observation is NOT satisfied
                     continue  # ν = 0
                 end
@@ -66,7 +68,7 @@ function calculate_ν!(M,neighbours,xi0,oi,ci,ti_obs)
 
         for tj = 0:T+1
             for ti = 0:T+1
-                ξ = obs(M,ti,0,oi,ci,ti_obs)
+                ξ = obs(M,ti,0,oi,sympt,ci,ti_obs)
                 if ξ == 0.0  #if the observation is NOT satisfied
                     continue
                 end
@@ -94,7 +96,7 @@ function calculate_ν!(M,neighbours,xi0,oi,ci,ti_obs)
 end
 
 
-function calculate_belief!(M,l,neighbours,xi0,oi,ci,ti_obs) 
+function calculate_belief!(M,l,neighbours,xi0,oi,sympt,ci,ti_obs) 
     @unpack T, belief, γi, μ = M
     belief[:,:,l] .= zero(eltype(belief))
     if xi0 == 0
@@ -103,7 +105,7 @@ function calculate_belief!(M,l,neighbours,xi0,oi,ci,ti_obs)
                 #first we check consistency between
                 # the planted time τi and the inferred 
                 #time ti by checking the observation constraint
-                ξ = obs(M,ti,τi,oi,ci,ti_obs)
+                ξ = obs(M,ti,τi,oi,sympt,ci,ti_obs)
                 if ξ == 0.0 #if the observation is NOT satisfied
                     continue  # ν = 0
                 end
@@ -137,7 +139,7 @@ function calculate_belief!(M,l,neighbours,xi0,oi,ci,ti_obs)
         # so we separated the cases
 
         for ti = 0:T+1
-            ξ = obs(M,ti,0,oi,ci,ti_obs)
+            ξ = obs(M,ti,0,oi,sympt,ci,ti_obs)
             if ξ == 0.0  #if the observation is NOT satisfied
                 continue
             end
@@ -175,16 +177,17 @@ residual(d::DiscreteNonParametric) = DiscreteNonParametric(support(d) .- 1, (pro
 residual(d::DiscreteUniform) = Dirac(0)
 
 function rand_disorder(M, dist)
-    @unpack γp, λp, dilution, fr, obs_range
+    @unpack γp, λp, fr, obs_range, p_sympt_pla,p_test_pla = M
     r = 1.0 / log(1-λp) #random number to generate the delays
     sij = floor(Int,log(rand())*r) + 1
     sji = floor(Int,log(rand())*r) + 1 # infection delay
     xi0 = (rand() < γp); #zero patient
     d = rand(dist) #parameter of the degree distribution
-    oi = rand() > dilution # oi = 1 if the particle is observed, oi = 0 if the particle is not observed 
+    oi = rand() < p_test_pla # oi = 1 if the particle is observed, oi = 0 if the particle is not observed 
+    sympt = rand() < p_sympt_pla #the symptom appears 
     ci = rand() < fr #ci is the corruption bit. If ci==1 then the observation is corrupted (i.e. is flipped)
     ti_obs = rand(obs_range) 
-    return xi0, sij, sji, d, oi, ci, ti_obs
+    return xi0, sij, sji, d, oi, sympt, ci, ti_obs
 end
 
 
@@ -270,12 +273,12 @@ function energy(M) #this function computes the energy by only modifying the nu m
     #we take the converged population and compute the energy
     u = zero(eltype(M.ν))
     for i = 1:N
-        xi0,sij_,sji_,d,oi,ci,ti_obs = rand_disorder(M,M.distribution)
+        xi0,sij_,sji_,d,oi,sympt,ci,ti_obs = rand_disorder(M,M.distribution)
         msg = fill(zero(eltype(M.ν)),0:T+1, 0:T+1, 0:T+1, 0:2, d)
         #We need the messages on ti,tj. However, on mu messages we already have summed over tj
         #So we need to pass from mu to nu messages and again from nu to desired cavities
         for pos = 1:d # compute each cavity marginal
-            xj0,sji,sij,d_res,oj,cj,tj_obs = rand_disorder(M,M.residual)
+            xj0,sji,sij,d_res,oj,sympt,cj,tj_obs = rand_disorder(M,M.residual)
             cav_neighbours = rand(1:N,d_res)
             calculate_ν!(M,cav_neighbours,xj0,oj,cj,tj_obs)
             #due to BP equations, the original factor-to-node msg is equal to node-to-factor msg
@@ -294,7 +297,7 @@ function energy(M) #this function computes the energy by only modifying the nu m
         for pos = 1:d
             update_measure!(F∂i,F∂iold,pos,d,msg,M)
         end
-        zψi = calculate_belief!(M,i,1:d,xi0,oi,ci,ti_obs)
+        zψi = calculate_belief!(M,i,1:d,xi0,oiS,oiI,ci,ti_obs)
         # we finally evaluate the energy per site
         z_psi = zero(eltype(M.ν))
         z_psi_deb = zero(eltype(M.ν))
@@ -302,7 +305,7 @@ function energy(M) #this function computes the energy by only modifying the nu m
         # exaustive trace for debug
         for taui = 0:T+1
             for ti = 0:T+1
-                ξ = obs(M,ti,taui,oi,ci,ti_obs)
+                ξ = obs(M,ti,taui,oi,sympt,ci,ti_obs)
                 if ξ == 0.0 
                     continue 
                 end
@@ -326,7 +329,7 @@ function energy(M) #this function computes the energy by only modifying the nu m
         # 1d exaustive trace for debug
         #=for taui = 0:T+1
             for ti = 0:T+1
-                ξ = obs(M,ti,taui,oi,ci,ti_obs)
+                ξ = obs(M,ti,taui,oi,sympt,ci,ti_obs)
                 if ξ == 0.0 
                     continue 
                 end
@@ -345,7 +348,7 @@ function energy(M) #this function computes the energy by only modifying the nu m
         #end of exaustive trace
         for taui = 0:T+1
             for ti = 0:T+1
-                ξ = obs(M,ti,taui,oi,ci,ti_obs)
+                ξ = obs(M,ti,taui,oi,sympt,ci,ti_obs)
                 if ξ == 0.0 
                     continue 
                 end

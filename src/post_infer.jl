@@ -1,4 +1,4 @@
-mutable struct ParametricModel{D,D2,Taux,M,M1,M2,O,Tλ,MO}
+mutable struct ParametricModel{D,D2,Taux,M,M1,M2,O,Tλ,MO,Tsympt}
     T::Int
     γp::Float64
     λp::Float64
@@ -9,26 +9,25 @@ mutable struct ParametricModel{D,D2,Taux,M,M1,M2,O,Tλ,MO}
     belief::M2
     ν::M1
     fr::Float64
-    dilution::Float64
     distribution::D
     residual::D2
     Λ::O
     obs_list::MO
     obs_range::UnitRange{Int64}
     field::Bool
-    pTestSpla::Float64
-    pTestIpla::Float64
-    pTestSinf::Float64
-    pTestIinf::Float64
+    p_sympt_pla::Float64
+    p_test_pla::Float64
+    p_sympt_inf::Tsympt
+    p_test_inf::Float64
 end
 
-function ParametricModel(; N, T, γp, λp, γi=γp, λi=λp, fr=0.0, dilution=0.0, distribution, obs_range=T:T,field=false,biaspTestSpla,pTestIpla,pTestSinf,pTestIinf)
-    μ = fill(one(λi) / (6*(T+2)^2), 0:T+1, 0:1, 0:T+1, 0:2, 1:N)
-    belief = fill(zero(λi), 0:T+1, 0:T+1, N)
-    ν = fill(zero(λi), 0:T+1, 0:T+1, 0:T+1, 0:2)
-    Paux = fill(zero(λi), 0:1, 0:2)
+function ParametricModel(; N, T, γp, λp, γi=γp, λi=λp, fr=0.0, dilution=0.0, distribution, obs_range=T:T,field=false,p_sympt_pla=0.0,p_test_pla=1-dilution,p_sympt_inf=p_sympt_pla,p_test_inf=p_test_pla)
+    μ = fill(one(λi * p_sympt_inf) / (6*(T+2)^2), 0:T+1, 0:1, 0:T+1, 0:2, 1:N)
+    belief = fill(zero(λi * p_sympt_inf), 0:T+1, 0:T+1, N)
+    ν = fill(zero(λi * p_sympt_inf), 0:T+1, 0:T+1, 0:T+1, 0:2)
+    Paux = fill(zero(λi * p_sympt_inf), 0:1, 0:2)
     Λ = OffsetArray([t <= 0 ? one(λi) : (1-λi)^t for t = -T-2:T+1], -T-2:T+1)
-    ParametricModel(T, γp, λp,γi, λi,Paux, μ, belief, ν,fr, dilution, distribution, residual(distribution), Λ,fill(false,N),obs_range,field,pTestSpla,pTestIpla,pTestSinf,pTestIinf)
+    ParametricModel(T, γp, λp,γi, λi,Paux, μ, belief, ν,fr, distribution, residual(distribution), Λ,fill(false,N),obs_range,field,p_sympt_pla,p_test_pla,p_sympt_inf,p_test_inf)
 end
 
 
@@ -39,6 +38,13 @@ function update_lam!(M,F::ComplexF64,eta)
     dλ = - sign(∂F) * eta * M.λi.re #SignDescender
     M.λi = clamp(M.λi.re + dλ,0.0,0.99) + im * M.λi.im
     Λ .= OffsetArray([t <= 0 ? 1.0 : (1-M.λi)^t for t = -T-2:T+1], -T-2:T+1)
+end
+
+function update_sympt!(M,F::ComplexF64,eta)
+    @unpack T,Λ = M
+    ∂F = F.im / M.p_sympt_inf.im
+    dsympt = - sign(∂F) * eta * M.p_sympt_inf.re #SignDescender
+    M.p_sympt_inf = clamp(M.p_sympt_inf.re + dsympt,0.0,0.99) + im * M.p_sympt_inf.im
 end
 
 function update_gam!(M)
@@ -62,16 +68,16 @@ end
 function sweep!(M)
     e = 1 #edge counter
     N = popsize(M)
-    F_itoj = zero(M.λi)
-    Fψi = zero(M.λi)
+    F_itoj = zero(M.λi * M.p_sympt_inf)
+    Fψi = zero(M.λi * M.p_sympt_inf)
     for l = 1:N
         # Extraction of disorder: state of individual i: xi0, delays: sij and sji
-        xi0,sij,sji,d,oi,ci,ti_obs = rand_disorder(M,M.distribution)
+        xi0,sij,sji,d,oi,sympt,ci,ti_obs = rand_disorder(M,M.distribution)
         M.obs_list[l] = oi #this is stored for later estimation of AUC
         neighbours = rand(1:N,d)
         for m = 1:d
             res_neigh = [neighbours[1:m-1];neighbours[m+1:end]]
-            calculate_ν!(M,res_neigh,xi0,oi,ci,ti_obs)
+            calculate_ν!(M,res_neigh,xi0,oi,sympt,ci,ti_obs)
             #from the un-normalized ν message it is possible to extract the orginal-message 
             #normalization z_i→j 
             # needed for the computation of the Bethe Free energy
@@ -87,36 +93,42 @@ function sweep!(M)
             update_μ!(M,e,sij,sji)  
             e = mod(e,N) + 1
         end
-        zψi = calculate_belief!(M,l,neighbours,xi0,oi,ci,ti_obs)
+        zψi = calculate_belief!(M,l,neighbours,xi0,oi,sympt,ci,ti_obs)
         Fψi += (0.5 * d - 1) * log(zψi) 
     end
     return (Fψi - 0.5 * F_itoj) / N
 end
 
-function pop_dynamics(M; tot_iterations = 5, tol = 1e-10, eta = 0.0, infer_lam=false, infer_gam = false,nonlearn_iters=10)
-    N, T, F = popsize(M), M.T, zero(M.λi)
+function pop_dynamics(M; tot_iterations = 5, tol = 1e-10, eta = 0.0, infer_lam=false, infer_gam = false,infer_sympt=false,nonlearn_iters=10)
+    N, T, F = popsize(M), M.T, zero(M.λi * M.p_sympt_inf)
     lam_window = zeros(10)
     gam_window = zeros(10)
+    sympt_window = zeros(10)
     for iterations = 0:tot_iterations-1
         wflag = mod(iterations,10)+1
         lam_window[wflag] = M.λi |> real
         gam_window[wflag] = M.γi |> real
+        sympt_window[wflag] = M.p_sympt_inf |> real
         avg_old, err_old = avg_err(M.belief |> real)
         F = sweep!(M)
         avg_new, err_new = avg_err(M.belief |> real)
         infer_lam = check_prior(iterations, infer_lam, lam_window, eta, nonlearn_iters)
         infer_gam = check_prior(iterations, infer_gam, gam_window, eta, nonlearn_iters)
-        if (sum(abs.(avg_new .- avg_old) .<= (tol .+ 0.3 .* (err_old .+ err_new))) == length(avg_new)) 
-            return F, iterations
+        infer_sympt = check_prior(iterations, infer_sympt, sympt_window, eta, nonlearn_iters)
+        if (sum(abs.(avg_new .- avg_old) .<= (tol .+ 0.3 .* (err_old .+ err_new))) == length(avg_new))
+            if !(infer_lam | infer_gam | infer_sympt) #if we don't have to 
+                return F, iterations
+            end
         end
         (infer_lam) && (update_lam!(M,F,eta))
         (infer_gam) && (update_gam!(M))
+        (infer_sympt) && (update_sympt!(M,F,eta))
     end
     return F |> real , tot_iterations
 end
 
 function check_prior(iterations, infer, window, eta,nonlearn)
-    if (iterations >= nonlearn && infer)
+    if (iterations >= nonlearn && infer) # if we need to infer + we we have iterated more than the nonlearn treshold
         avg = sum(window) / 10
         err = sqrt(sum(window .^ 2)/10 - avg ^ 2)
         if (err/avg <= eta) 
