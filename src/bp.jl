@@ -270,34 +270,39 @@ function energy(M) #this function computes the energy by only modifying the nu m
     @assert M.fr == 0.0 "function usable only for fr=0"
     N = popsize(M)
     T = M.T
+    Z, Zdeb = 0.0, 0.0
     #we take the converged population and compute the energy
     u = zero(eltype(M.ν))
     for i = 1:N
-        xi0,sij_,sji_,d,oi,sympt,ci,ti_obs = rand_disorder(M,M.distribution)
+        xi0,sij_,sji_,d,oi,sympt_i,ci,ti_obs = rand_disorder(M,M.distribution)
         msg = fill(zero(eltype(M.ν)),0:T+1, 0:T+1, 0:T+1, 0:2, d)
         #We need the messages on ti,tj. However, on mu messages we already have summed over tj
         #So we need to pass from mu to nu messages and again from nu to desired cavities
         for pos = 1:d # compute each cavity marginal
-            xj0,sji,sij,d_res,oj,sympt,cj,tj_obs = rand_disorder(M,M.residual)
+            xj0,sji,sij,d_res,oj,sympt_j,cj,tj_obs = rand_disorder(M,M.residual)
             cav_neighbours = rand(1:N,d_res)
-            calculate_ν!(M,cav_neighbours,xj0,oj,cj,tj_obs)
+            calculate_ν!(M,cav_neighbours,xj0,oj,sympt_j,cj,tj_obs)
             #due to BP equations, the original factor-to-node msg is equal to node-to-factor msg
             # since nu is almost the same to the original message, we just have to
             #trace over nu in order to get the inferred cavity marginals
             update_μ!(M,pos,sij,sji)  
             inferred_times_msg!(msg,pos,M,sji,sij,xi0)
-           
-            @show xi0, xj0, sij, sji
-            @show sum(M.μ),sum(msg[:,:,:,:,pos])
+            #@show xi0, xj0, sij, sji
+            #@show sum(M.μ),sum(msg[:,:,:,:,pos])
         end
         F∂i = fill(zero(eltype(M.ν)),0:T+1,0:d*T,0:d,0:2,0:T+1)
-        F∂i[:,0,0,:,:] .= 1
+        if xi0 == 1
+            F∂i[:,0,0,0,:] .= 1
+        else
+            F∂i[:,0,0,1,:] .= 1
+            F∂i[:,0,0,2,0:T] .= -1
+        end
         F∂iold = fill(zero(eltype(M.ν)),0:T+1,0:d*T,0:d,0:2,0:T+1) #tmp to use to update 
         # now that we have the messages, we must compute the measure iteratively
         for pos = 1:d
             update_measure!(F∂i,F∂iold,pos,d,msg,M)
         end
-        zψi = calculate_belief!(M,i,1:d,xi0,oiS,oiI,ci,ti_obs)
+        zψi = calculate_belief!(M,i,1:d,xi0,oi,sympt_i,ci,ti_obs)
         # we finally evaluate the energy per site
         z_psi = zero(eltype(M.ν))
         z_psi_deb = zero(eltype(M.ν))
@@ -305,7 +310,7 @@ function energy(M) #this function computes the energy by only modifying the nu m
         # exaustive trace for debug
         for taui = 0:T+1
             for ti = 0:T+1
-                ξ = obs(M,ti,taui,oi,sympt,ci,ti_obs)
+                ξ = obs(M,ti,taui,oi,sympt_i,ci,ti_obs)
                 if ξ == 0.0 
                     continue 
                 end
@@ -348,7 +353,7 @@ function energy(M) #this function computes the energy by only modifying the nu m
         #end of exaustive trace
         for taui = 0:T+1
             for ti = 0:T+1
-                ξ = obs(M,ti,taui,oi,sympt,ci,ti_obs)
+                ξ = obs(M,ti,taui,oi,sympt_i,ci,ti_obs)
                 if ξ == 0.0 
                     continue 
                 end
@@ -364,10 +369,12 @@ function energy(M) #this function computes the energy by only modifying the nu m
                 end
             end
         end
-       # @show zψi, z_psi#, z_psi_deb
+        @show zψi, z_psi, z_psi_deb
         u -= u_psi / z_psi
+        Z += log(z_psi)
+        Zdeb += log(zψi)
     end
-    return u/N
+    return Z,Zdeb#u/N
 end
 
 function update_measure!(F∂i,F∂iold,pos,d,msg,M)
