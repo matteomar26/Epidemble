@@ -227,7 +227,7 @@ function inferred_times_msg!(ms,pos,M,sij,sji,xi0)
                     f = Γ(Σ,ν,tj,ti,taui,sij,sji) # first term of the sum
                     s = (taui-sji>=0) * ν[tj,ti,max(taui-sji,0),2] # second term of the sum
                     ms[ti,tj,taui,1,pos] = f + s
-                    ms[ti,tj,taui,2,pos] = - (taui < T+1) * f
+                    ms[ti,tj,taui,2,pos] =  f
                 end
             end
         end
@@ -307,50 +307,6 @@ function energy(M) #this function computes the energy by only modifying the nu m
         z_psi = zero(eltype(M.ν))
         z_psi_deb = zero(eltype(M.ν))
         u_psi = zero(eltype(M.ν))
-        # exaustive trace for debug
-        for taui = 0:T+1
-            for ti = 0:T+1
-                ξ = obs(M,ti,taui,oi,sympt_i,ci,ti_obs)
-                if ξ == 0.0 
-                    continue 
-                end
-                for tj = 0:T+1
-                    for tk = 0:T+1
-                        θij = (ti - tj - 1) >= 0
-                        θik = (ti - tk - 1) >= 0
-                        tij = θij ? (ti - tj - 1) : 0
-                        tik = θik ? (ti - tk - 1) : 0
-                        S1 = tij + tik
-                        S2 = θij + θik
-                        for v = 0:2
-                            z_psi_deb += psi(M,ti,S1,S2) * msg[ti,tj,taui,v,1] * msg[ti,tk,taui,v,2] 
-                            #u_psi += psi(M,ti,S1,S2) * log(psi(M,ti,S1,S2)) *  F∂i[ti,S1,S2,v,taui]
-                        end
-                    end
-                end
-            end
-        end
-        #end of exaustive trace
-        # 1d exaustive trace for debug
-        #=for taui = 0:T+1
-            for ti = 0:T+1
-                ξ = obs(M,ti,taui,oi,sympt,ci,ti_obs)
-                if ξ == 0.0 
-                    continue 
-                end
-                for tj = 0:T+1
-                        θij = (ti - tj - 1) >= 0
-                        tij = θij ? (ti - tj - 1) : 0
-                        S1 = tij 
-                        S2 = θij 
-                        for v = 0:2
-                            z_psi_deb += psi(M,ti,S1,S2) * msg[ti,tj,taui,v,1] 
-                            #u_psi += psi(M,ti,S1,S2) * log(psi(M,ti,S1,S2)) *  F∂i[ti,S1,S2,v,taui]
-                        end
-                end
-            end
-        end=#
-        #end of exaustive trace
         for taui = 0:T+1
             for ti = 0:T+1
                 ξ = obs(M,ti,taui,oi,sympt_i,ci,ti_obs)
@@ -369,7 +325,7 @@ function energy(M) #this function computes the energy by only modifying the nu m
                 end
             end
         end
-        @show zψi, z_psi, z_psi_deb
+        @show zψi, z_psi
         u -= u_psi / z_psi
         Z += log(z_psi)
         Zdeb += log(zψi)
