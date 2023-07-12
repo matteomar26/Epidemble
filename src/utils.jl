@@ -1,5 +1,6 @@
 function save_values!(inf_out,M,conv,count_obs)
     marg = M.belief |> real;
+    U = energy(M)
     marg2D = reshape(sum(marg,dims=3) ./ N, T+2,T+2)
     inf_out[1] = conv[2] #number of iterations
     inf_out[2:T+2] .= avgAUC(marg,M.obs_list,count_obs=count_obs)
@@ -9,6 +10,7 @@ function save_values!(inf_out,M,conv,count_obs)
     inf_out[4*T + 6] = conv[1] |> real #free energy 
     inf_out[4*T + 7] = M.λi |> real 
     inf_out[4*T + 8] = M.γi |> real
+    inf_out[4*T + 9] = (U - conv[1]) |> real #entropy
 end
 
 
