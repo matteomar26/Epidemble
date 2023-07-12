@@ -14,14 +14,14 @@ mutable struct ParametricModel{D,D2,Taux,M,M1,M2,O,Tλ,MO,Tsympt}
     Λ::O
     obs_list::MO
     obs_range::UnitRange{Int64}
-    field::Bool
+    field::Float64
     p_sympt_pla::Float64
     p_test_pla::Float64
     p_sympt_inf::Tsympt
     p_test_inf::Float64
 end
 
-function ParametricModel(; N, T, γp, λp, γi=γp, λi=λp, fr=0.0, dilution=0.0, distribution, obs_range=T:T,field=false,p_sympt_pla=0.0,p_test_pla=1-dilution,p_sympt_inf=p_sympt_pla,p_test_inf=p_test_pla)
+function ParametricModel(; N, T, γp, λp, γi=γp, λi=λp, fr=0.0, dilution=0.0, distribution, obs_range=T:T,field=0.0,p_sympt_pla=0.0,p_test_pla=1-dilution,p_sympt_inf=p_sympt_pla,p_test_inf=p_test_pla)
     μ = fill(one(λi * p_sympt_inf) / (6*(T+2)^2), 0:T+1, 0:1, 0:T+1, 0:2, 1:N)
     belief = fill(zero(λi * p_sympt_inf), 0:T+1, 0:T+1, N)
     ν = fill(zero(λi * p_sympt_inf), 0:T+1, 0:T+1, 0:T+1, 0:2)
@@ -51,11 +51,19 @@ function update_gam!(M)
     M.γi = (sum(M.belief[0,:,:]) / popsize(M)).re
 end
 
-function avg_err(b)
+#=function avg_err(b)
     N = size(b,3)
     T = size(b,1) - 2
     avg_bel = reshape(sum(sum(b,dims=2),dims=3) ./ (N*(T+2)),T+2) 
     err_bel = sqrt.(reshape(sum(sum(b .^ 2,dims=2),dims=3) ./ (N * (T+2)),T+2) .- avg_bel .^ 2) ./ sqrt(N)
+    return avg_bel, err_bel
+end=#
+
+function avg_err(b)
+    N = size(b,3)
+    T = size(b,1) - 2
+    avg_bel = reshape(sum(b, dims=3) ./ N, T+2, T+2) 
+    err_bel = sqrt.(reshape(sum(b .^ 2, dims=3) ./ N, T+2, T+2) .- avg_bel .^ 2) ./ sqrt(N)
     return avg_bel, err_bel
 end
 
@@ -96,10 +104,11 @@ function sweep!(M)
         zψi = calculate_belief!(M,l,neighbours,xi0,oi,sympt,ci,ti_obs)
         Fψi += (0.5 * d - 1) * log(zψi) 
     end
-    return (Fψi - 0.5 * F_itoj) / N
+    
+    return (Fψi - 0.5 * F_itoj) / N 
 end
 
-function pop_dynamics(M; tot_iterations = 5, tol = 1e-10, eta = 0.0, infer_lam=false, infer_gam = false,infer_sympt=false,nonlearn_iters=10)
+#=function pop_dynamicsObsolete(M; tot_iterations = 5, tol = 1e-10, eta = 0.0, infer_lam=false, infer_gam = false,infer_sympt=false,nonlearn_iters=10)
     N, T, F = popsize(M), M.T, zero(M.λi * M.p_sympt_inf)
     lam_window = zeros(10)
     gam_window = zeros(10)
@@ -115,17 +124,50 @@ function pop_dynamics(M; tot_iterations = 5, tol = 1e-10, eta = 0.0, infer_lam=f
         infer_lam = check_prior(iterations, infer_lam, lam_window, eta, nonlearn_iters)
         infer_gam = check_prior(iterations, infer_gam, gam_window, eta, nonlearn_iters)
         infer_sympt = check_prior(iterations, infer_sympt, sympt_window, eta, nonlearn_iters)
-        if (sum(abs.(avg_new .- avg_old) .<= (tol .+ 0.3 .* (err_old .+ err_new))) == length(avg_new))
-            if !(infer_lam | infer_gam | infer_sympt) #if we don't have to 
-                return F, iterations
-            end
+        converged = check_convergenceObsolete(avg_new, err_new, avg_old, err_old, tol) 
+        #@show converged
+        #@show abs.(avg_new .- avg_old)
+        #@show (err_old .+ err_new)
+        if converged  & !infer_lam & !infer_gam & !infer_sympt #if we don't have to infer 
+            return F, iterations+1
         end
         (infer_lam) && (update_lam!(M,F,eta))
         (infer_gam) && (update_gam!(M))
         (infer_sympt) && (update_sympt!(M,F,eta))
     end
     return F |> real , tot_iterations
+end=#
+
+
+function pop_dynamics(M; tot_iterations = 5, tol = 1e-10, eta = 0.0, infer_lam=false, infer_gam = false,infer_sympt=false,nonlearn_iters=10)
+    N, T, F = popsize(M), M.T, zero(M.λi * M.p_sympt_inf)
+    F_window = zeros(10)
+    converged = false
+    lam_window = zeros(10)
+    gam_window = zeros(10)
+    sympt_window = zeros(10)
+    for iterations = 0:tot_iterations-1
+        wflag = mod(iterations,10)+1
+        lam_window[wflag] = M.λi |> real
+        gam_window[wflag] = M.γi |> real
+        sympt_window[wflag] = M.p_sympt_inf |> real
+        F = sweep!(M) 
+        F_window[mod(iterations,length(F_window))+1] = (F |> real)
+        infer_lam = check_prior(iterations, infer_lam, lam_window, eta, nonlearn_iters)
+        infer_gam = check_prior(iterations, infer_gam, gam_window, eta, nonlearn_iters)
+        infer_sympt = check_prior(iterations, infer_sympt, sympt_window, eta, nonlearn_iters)
+        (iterations > length(F_window)) && (converged = check_convergence(F_window,2/sqrt(N)))
+        if converged  & !infer_lam & !infer_gam & !infer_sympt #if we don't have to infer 
+            return F_window |> real, iterations+1
+        end
+        (infer_lam) && (update_lam!(M,F,eta))
+        (infer_gam) && (update_gam!(M))
+        (infer_sympt) && (update_sympt!(M,F,eta))
+    end
+    return F_window |> real , tot_iterations
 end
+
+
 
 function check_prior(iterations, infer, window, eta,nonlearn)
     if (iterations >= nonlearn && infer) # if we need to infer + we we have iterated more than the nonlearn treshold
@@ -137,6 +179,22 @@ function check_prior(iterations, infer, window, eta,nonlearn)
     end
     return infer
 end
+
+function check_convergence(window,tol)
+    l = length(window)
+    avg = sum(window) / l
+    variance = sum(window .^ 2)/l - avg ^ 2
+    err = abs(variance) > 1e-15 ? sqrt(variance) : 0.0
+    if (err <= tol) 
+        return true
+    else 
+        return false
+    end
+end
+
+#=function check_convergenceObsolete(avg_new, err_new, avg_old, err_old, tol)
+    prod(abs.(avg_new .- avg_old) .<= (tol .+ (err_old .+ err_new)))
+end=#
 
 function prior_entropy(M)
     N = popsize(M)
