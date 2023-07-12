@@ -3,21 +3,19 @@ using Distributions,UnPack,OffsetArrays
 
 popsize(M) = size(M.belief,3)
 
+
 function obs(M, ti, τi, oi, sympt, ci, ti_obs) 
-    if M.field == true # option to align the BP solution to the informed state.
-        return ti == τi
-    else
-        xt_inf = (ti <= ti_obs) 
-        xt_pla = (τi <= ti_obs)
-        o = oi | (xt_pla & sympt) #the indiv is either observed random or because it is I and symptomatic
-        p_test = xt_inf ? (M.p_sympt_inf + M.p_test_inf * (1 - M.p_sympt_inf)) : M.p_test_inf * one(M.p_sympt_inf) #the one is to stabilize types
-        #@show sympt, oi, xt_pla
-        if ci #if ci=1 we see the opposite of the value xt_pla
-            return o ? (xt_inf == !xt_pla ? ((1.0 - M.fr) * p_test) : (M.fr * p_test)) : (1.0 - p_test)
-        else 
-            return o ? (xt_inf == xt_pla ? ((1.0 - M.fr) * p_test) : (M.fr * p_test)) : (1.0 - p_test)
-        end
+    xt_inf = (ti <= ti_obs) 
+    xt_pla = (τi <= ti_obs)
+    o = oi | (xt_pla & sympt) #the indiv is either observed random or because it is I and symptomatic
+    p_test = xt_inf ? (M.p_sympt_inf + M.p_test_inf * (1 - M.p_sympt_inf)) : M.p_test_inf * one(M.p_sympt_inf) 
+    #the one(..) above is to stabilize types
+    if ci #if ci=1 we see the opposite of the value xt_pla
+        ob_made = o ? (xt_inf == !xt_pla ? ((1.0 - M.fr) * p_test) : (M.fr * p_test)) : (1.0 - p_test)
+    else 
+        ob_made = o ? (xt_inf == xt_pla ? ((1.0 - M.fr) * p_test) : (M.fr * p_test)) : (1.0 - p_test)
     end
+    return (1 - M.field) * ob_made + M.field * Int(ti == τi)
 end
 
 
@@ -270,7 +268,6 @@ function energy(M) #this function computes the energy by only modifying the nu m
     @assert M.fr == 0.0 "function usable only for fr=0"
     N = popsize(M)
     T = M.T
-    Z, Zdeb = 0.0, 0.0
     #we take the converged population and compute the energy
     u = zero(eltype(M.ν))
     for i = 1:N
@@ -285,7 +282,6 @@ function energy(M) #this function computes the energy by only modifying the nu m
             #due to BP equations, the original factor-to-node msg is equal to node-to-factor msg
             # since nu is almost the same to the original message, we just have to
             #trace over nu in order to get the inferred cavity marginals
-            update_μ!(M,pos,sij,sji)  
             inferred_times_msg!(msg,pos,M,sji,sij,xi0)
             #@show xi0, xj0, sij, sji
             #@show sum(M.μ),sum(msg[:,:,:,:,pos])
@@ -302,10 +298,8 @@ function energy(M) #this function computes the energy by only modifying the nu m
         for pos = 1:d
             update_measure!(F∂i,F∂iold,pos,d,msg,M)
         end
-        zψi = calculate_belief!(M,i,1:d,xi0,oi,sympt_i,ci,ti_obs)
         # we finally evaluate the energy per site
         z_psi = zero(eltype(M.ν))
-        z_psi_deb = zero(eltype(M.ν))
         u_psi = zero(eltype(M.ν))
         for taui = 0:T+1
             for ti = 0:T+1
@@ -325,12 +319,9 @@ function energy(M) #this function computes the energy by only modifying the nu m
                 end
             end
         end
-        @show zψi, z_psi
         u -= u_psi / z_psi
-        Z += log(z_psi)
-        Zdeb += log(zψi)
     end
-    return Z,Zdeb#u/N
+    return u/N
 end
 
 function update_measure!(F∂i,F∂iold,pos,d,msg,M)
