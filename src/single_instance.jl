@@ -13,9 +13,8 @@ function sibyl(N, T, Λ, O, γ, λ ; maxit = 400, tol = 1e-14)
     psus = prob_sus * (1 - pseed)
     params = sib.Params(prob_r=sib.Exponential(mu=0), pseed=pseed, psus=psus,pautoinf=1e-10)
     f = sib.FactorGraph(contacts=contacts, observations=obs, params=params)
-    sib.iterate(f, maxit=maxit,tol=tol)
-    sib.iterate(f, maxit=maxit, damping=0.5, tol=tol)
-    #sib.iterate(f, maxit=maxit, damping=0.9, tol=tol ; learn)
+    sib.iterate(f, maxit=maxit, tol=tol, callback=nothing)
+    #sib.iterate(f, maxit=maxit, damping=0.5, tol=tol)
     p_sib=[collect(n.bt) for n in f.nodes]
     m_sib = zeros(N, T)
     dλ = 0.0
@@ -101,7 +100,8 @@ function siMSE(x, p) #the mmse at fixed time
     return mse
 end
 
-function sample!(x, G, λi, γi) 
+function sample!(x, G, λi, γi)
+    x .= 0
     N, T = size(x)
     for i=1:N
         x[i,1] = rand() < γi
@@ -120,6 +120,20 @@ function sample!(x, G, λi, γi)
         end
     end
     x
+end
+function forward_epidemics!(x, G) # propagate deterministic epidemic
+    x[:,2:end] .= 0
+    N, T = size(x)
+    for t = 2:T
+        for i = 1:N
+            if x[i,t-1] == 1 # if infected
+                x[i,t] = 1 #keeps the state
+                for j in outedges(G,i) 
+                    x[j.dst,t] = 1 #infects all the neighb
+                end
+            end
+        end
+    end
 end
 
 function makeGraph(Ngraph,degree_dist::Poisson)
@@ -145,19 +159,28 @@ function S_subgraph(G,x)
     number = 0 
     S = SimpleGraph(Ngraph)
     for i = 1:Ngraph
-        if x[i,end-1] == 0
-            if length(outedges(G,i)) == 0
-                number += 1
-            else
-                for j in outedges(G,i)
-                    if x[j.dst] == 0
-                        add_edge!(S,i,j.dst)
-                    end
+        if x[i,end] == 0
+            flag = 0
+            for j in outedges(G,i)
+                if x[j.dst, end] == 0
+                    add_edge!(S,i,j.dst)
+                    flag = 1
                 end
+                (flag == 0) && (number += 1) #if no neighbours then it is isolated node
             end
         end
     end
     return nontrivial_conn(S) + number
+end
+
+function possible_zero_patients(G,x)
+    N, T = size(x)
+    y = zero(x)
+    y[:,1] = (-1 .* (-1 .+ x[:,end]) ) #take the flipped final state
+    #now we do a fake epidemics with λ=1 to open all spheres of radius T from the S idividuals
+    forward_epidemics!(y,G)
+    # Now the "S" individuals in this new epidemic are the possible zero patients of x
+    S_subgraph(G,y)
 end
     
 function nontrivial_conn(G)
