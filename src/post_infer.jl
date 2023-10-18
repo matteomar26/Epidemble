@@ -85,7 +85,7 @@ function sweep!(M)
         neighbours = rand(1:N,d)
         for m = 1:d
             res_neigh = [neighbours[1:m-1];neighbours[m+1:end]]
-            calculate_ν!(M,res_neigh,xi0,oi,sympt,ci,ti_obs)
+            calculate_logν!(M,res_neigh,xi0,oi,sympt,ci,ti_obs)
             #from the un-normalized ν message it is possible to extract the orginal-message 
             #normalization z_i→j 
             # needed for the computation of the Bethe Free energy
@@ -95,13 +95,13 @@ function sweep!(M)
             zψij = edge_normalization(M,M.ν,sji)
             F_itoj += log(zψij)
             #Now we can normalize ν
-            M.ν ./= zψij    
+            M.ν ./= zψij  
             # Now we use the ν vector just calculated to extract the new μ.
             # We overwrite the μ in postition μ[:,:,:,:,l]
             update_μ!(M,e,sij,sji)  
             e = mod(e,N) + 1
         end
-        zψi = calculate_belief!(M,l,neighbours,xi0,oi,sympt,ci,ti_obs)
+        zψi = calculate_logbelief!(M,l,neighbours,xi0,oi,sympt,ci,ti_obs)
         Fψi += (0.5 * d - 1) * log(zψi) 
     end
     
