@@ -186,3 +186,10 @@ end
 function nontrivial_conn(G)
     sum(length(x) > 1 for x in connected_components(G))
 end
+
+function empirical_deg_distr(G)
+    sorted_hist = sort(degree_histogram(G))
+    p_deg = collect(values(sorted_hist)) ./ nv(G)
+    support = collect(keys(sorted_hist))
+    return DiscreteNonParametric(support,p_deg)
+end
