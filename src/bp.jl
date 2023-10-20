@@ -21,7 +21,7 @@ end
 
 function calculate_logν!(M,neighbours,xi0,oi,sympt,ci,ti_obs)
     @unpack T,γi,Λ,μ,ν = M
-    ν .= log(0)
+    ν .= log(zero(eltype(ν)))
     if xi0 == 0
         for τi = 1:T+1
             for ti = 0:T+1
@@ -41,32 +41,27 @@ function calculate_logν!(M,neighbours,xi0,oi,sympt,ci,ti_obs)
                 #now we calculate the four products over
                 # μ functions that we need to put in the
                 # expression of ν. We call them m1,..,m4
-                m1, m2, m3, m4 = one(eltype(μ)),one(eltype(μ)),one(eltype(μ)),one(eltype(μ))
+                m1, m2, m3, m4 = zero(eltype(μ)),zero(eltype(μ)),zero(eltype(μ)),zero(eltype(μ))
                 # we initialize the m's to one and then we 
                 # loop a product over neighbours
-                m1,m2,m3,m4 = 0,0,0,0
                 for k in neighbours 
                     m1 += log(μ[ti,1,τi,1,k] + μ[ti,1,τi,2,k])
                     m2 += log(μ[ti,0,τi,1,k] + μ[ti,0,τi,2,k])
                     m3 += log(μ[ti,1,τi,2,k])
                     m4 += log(μ[ti,0,τi,2,k])
-                    isnan(m1) && (@show μ[ti,1,τi,1,k] + μ[ti,1,τi,2,k])
                 end
                 #Now we have everything to calculate ν
                 for tj=0:T+1
-                    (m1 == -Inf) && (continue)
-                    ν[ti,tj,τi,1] = log(ξ  * seed) + m1 + log(Λ[ti-tj-1] - phi * Λ[ti-tj] * exp(m2-m1))
-                    isnan(ν[ti,tj,τi,1]) && @show m1, log(exp(m2-m1))
-                    (m3 == -Inf) && (continue)
-                    # We use the fact that ν for σ=2 is just ν at σ=1 plus a term
-                    ν[ti,tj,τi,2] =  log(ξ * (τi<T+1) * seed) + m3 + log(Λ[ti-tj-1] - phi * Λ[ti-tj] * exp(m4-m3))
+                    (m1 ==-Inf && continue)
+                    ν[ti,tj,τi,1] = log(ξ  * seed) + m1 + log(Λ[ti-tj-1] - phi * Λ[ti-tj] * exp(m2-m1)) 
+#ν[ti,tj,τi,2] = ξ*seed*(Λ[ti-tj-1]*m1-phi*Λ[ti-tj]*m2)+ξ*(τi<T+1)*seed*(phi*Λ[ti-tj]*m4-Λ[ti-tj-1]*m3)
+#ν[ti,tj,τi,2] = ξ*seed*m1*((Λ[ti-tj-1]-phi*Λ[ti-tj]*m2/m1)+m3/m1*(τi<T+1)*(phi*Λ[ti-tj]*m4/m3-Λ[ti-tj-1]))
+                    ν[ti,tj,τi,2] = log(ξ*seed)+m1+log((Λ[ti-tj-1]-phi*Λ[ti-tj]*exp(m2-m1))-(τi<T+1)*(Λ[ti-tj-1]exp(m3-m1)-phi*Λ[ti-tj]*exp(m4-m1)))
                 end
             end
         end
         logmaxnorm = maximum(ν)
         ν .= exp.(ν .- logmaxnorm)
-        #ν[:,:,:,1] .= exp.(ν[:,:,:,1])
-        ν[:,:,:,2] .= -ν[:,:,:,2] .+ ν[:,:,:,1] 
     else
         # We are now in the case in which the individual is 
         # the zero patient. In this case the computation of 
@@ -83,11 +78,10 @@ function calculate_logν!(M,neighbours,xi0,oi,sympt,ci,ti_obs)
                 # in σ and is nonzero only if τi=0
 
                 #As before we pre-calculate ti-dependent quantities 
-                seed = (ti==0 ? γi : (1-γi) )
-                phi = (ti==0 || ti==T+1) ? 0 : 1
+                seed = ti == 0 ? γi : 1 - γi
+                phi = ti == 0 || ti == T + 1 ? 0 : 1
                 # We perform the product over neighbours
-                m1, m2 = one(eltype(μ)), one(eltype(μ))
-                m1, m2 = 0,0
+                m1, m2 = zero(eltype(μ)), zero(eltype(μ))
                 for k in neighbours 
                     m1 += log(μ[ti,1,0,0,k] + μ[ti,1,0,1,k] + μ[ti,1,0,2,k])
                     m2 += log(μ[ti,0,0,0,k] + μ[ti,0,0,1,k] + μ[ti,0,0,2,k])
@@ -105,14 +99,16 @@ function calculate_logν!(M,neighbours,xi0,oi,sympt,ci,ti_obs)
         return
     end 
     if any(isnan.(ν))
-        #println("NaN ν at $(M.λi), $(M.γi), $(popsize(M)), $(M.fr)")
+        println("NaN logν at $(M.λi), $(M.γi), $(popsize(M)), $(M.fr)")
+        @show xi0
         return
     end 
+    return logmaxnorm
 end
 
 function calculate_logbelief!(M,l,neighbours,xi0,oi,sympt,ci,ti_obs) 
     @unpack T, belief, γi, μ = M
-    belief[:,:,l] .= log(zero(eltype(belief)))
+    belief[:,:,l] .= -1000 #is a soft -\infty of the log
     if xi0 == 0
         for τi = 1:T+1
             for ti = 0:T+1
@@ -137,16 +133,20 @@ function calculate_logbelief!(M,l,neighbours,xi0,oi,sympt,ci,ti_obs)
                 # loop a product over neighbours
                 m1,m2,m3,m4 = 0,0,0,0
                 for k in neighbours 
-                    m1 += log(μ[ti,1,τi,1,k] + μ[ti,1,τi,2,k])
-                    m2 += log(μ[ti,0,τi,1,k] + μ[ti,0,τi,2,k])
-                    m3 += log(μ[ti,1,τi,2,k])
-                    m4 += log(μ[ti,0,τi,2,k])
+                    m1 += log(max(μ[ti,1,τi,1,k] + μ[ti,1,τi,2,k],0))
+                    m2 += log(max(μ[ti,0,τi,1,k] + μ[ti,0,τi,2,k],0))
+                    m3 += log(max(μ[ti,1,τi,2,k],0))
+                    m4 += log(max(μ[ti,0,τi,2,k],0))
                 end
-                (m1 == -Inf) && (continue)
+                m1 == -Inf && continue
                 if m3 == -Inf
-                    belief[ti,τi,l] = m1 + log(ξ  * seed) + log( 1 - phi * exp(m2-m1))
+                    belief[ti,τi,l] = m1 + log(ξ * seed) + log( 1 - phi * exp(m2-m1))
                 else
-                    belief[ti,τi,l] = m1 + log(ξ  * seed * ( 1 - phi * exp(m2-m1)) - ξ * (τi<T+1) * seed * exp(m3-m1) * (1 - phi *  exp(m4-m3)))
+                    contrib = ξ*seed*(1-phi*exp(m2-m1))-ξ*(τi<T+1)*seed*exp(m3-m1)*(1-phi*exp(m4-m3))
+                    if contrib < 0.0 
+                        contrib = 0.0
+                    end
+                    belief[ti,τi,l] = m1 + log(contrib)
                 end
             end
         end
@@ -178,14 +178,15 @@ function calculate_logbelief!(M,l,neighbours,xi0,oi,sympt,ci,ti_obs)
             belief[ti,0,l] = log(ξ * seed) + m1 + log( 1 - phi *  exp(m2-m1))
         end
     end
-    belief[:,:,l] .= exp.((@view belief[:,:,l]) .- maximum(@view belief[:,:,l]))
+    logmax = maximum(@view belief[:,:,l])
+    belief[:,:,l] .= exp.((@view belief[:,:,l]) .- logmax)
     S = sum(@view belief[:,:,l])
     if S == zero(eltype(belief))
         println("sum-zero belief  at $(M.λi), $(M.γi), $(M.γp)")
         return
     end    
     belief[:,:,l] ./= S
-    return S
+    return log(S) + logmax
 end
 
 
@@ -259,6 +260,10 @@ function calculate_ν!(M,neighbours,xi0,oi,sympt,ci,ti_obs)
             end
         end
     end
+    if any(isnan.(ν))
+        #println("NaN ν at $(M.λi), $(M.γi), $(popsize(M)), $(M.fr)")
+        return
+    end 
     if sum(ν) == zero(eltype(ν))
         println("sum-zero ν at $(M.λi), $(M.γi), $(popsize(M)), $(M.fr)")
         return
@@ -361,7 +366,7 @@ function rand_disorder(M, dist)
 end
 
 
-function edge_normalization(M,ν,sji)
+function original_normalization(M,ν,sji)
     # first we sum on ti and tj
     tmp = sum(sum(ν,dims=1),dims=2)
     norm = zero(eltype(ν))
@@ -420,6 +425,7 @@ function update_μ!(M,l,sij,sji)
                 # so not to calculate it twice
                 Γ = Σ[ti,tj,min(τj+sji-1,T+1),2] - (τj-sij>=0)*Σ[ti,tj,max(τj-sij,0),2]+(τj+sji<=T+1)*ν[ti,tj,min(τj+sji,T+1),1]+
                     Σ[ti,tj,T+1,0] - Σ[ti,tj,min(τj+sji,T+1),0]
+                
                 for c = 0:1
                     Paux[c,0] += Λ[tj-ti-c] * (τj-sij-1>=0) * Σ[ti,tj,max(τj-sij-1,0),2]
                     Paux[c,1] += Λ[tj-ti-c] * (τj-sij>=0) * ν[ti,tj,max(τj-sij,0),2]
@@ -432,11 +438,14 @@ function update_μ!(M,l,sij,sji)
     S = sum(@view μ[:,:,:,:,l])
     if iszero(S)
         println("sum-zero μ  at $(M.λi), $(M.γi)")
+        @show(ν)
         return
     end 
     if any(isnan,μ[:,:,:,:,l])
         println("NaN in μ")
+        @show sum(ν)
     end
+    μ[:,:,:,:,l] ./= S
 end
 
 function energy(M) #this function computes the energy by only modifying the nu messages
@@ -523,4 +532,14 @@ end
 function psi(M,ti,S1,S2)
     seed = (ti == 0 ? M.γi : 1 - M.γi)
     return seed * ((1 - M.λi) ^ S1) * (1 - (1 <= ti <= M.T) * (1 - M.λi) ^ S2)
+end
+
+
+function unif_initializ!(M)
+    N = popsize(M)
+    M.ν .= 1/(T+2)^2
+    for l = 1:N
+        xi0,sij,sji,d,oi,sympt,ci,ti_obs = rand_disorder(M,M.distribution)
+        update_μ!(M,l,sij,sji)
+    end
 end

@@ -72,7 +72,6 @@ function FatTail(support::UnitRange{Int64}, exponent,a)
     return DiscreteNonParametric(collect(support), p / sum(p))
 end
 
-
 function sweep!(M)
     e = 1 #edge counter
     N = popsize(M)
@@ -85,58 +84,59 @@ function sweep!(M)
         neighbours = rand(1:N,d)
         for m = 1:d
             res_neigh = [neighbours[1:m-1];neighbours[m+1:end]]
-            calculate_logν!(M,res_neigh,xi0,oi,sympt,ci,ti_obs)
+            calculate_ν!(M,res_neigh,xi0,oi,sympt,ci,ti_obs)
             #from the un-normalized ν message it is possible to extract the orginal-message 
             #normalization z_i→j 
             # needed for the computation of the Bethe Free energy
             r = 1.0 / log(1-M.λp)
             sij = floor(Int,log(rand())*r) + 1
             sji = floor(Int,log(rand())*r) + 1
-            zψij = edge_normalization(M,M.ν,sji)
-            F_itoj += log(zψij)
-            #Now we can normalize ν
-            M.ν ./= zψij  
+            zψij = original_normalization(M,M.ν,sji)
+            F_itoj += log(zψij) 
             # Now we use the ν vector just calculated to extract the new μ.
             # We overwrite the μ in postition μ[:,:,:,:,l]
             update_μ!(M,e,sij,sji)  
             e = mod(e,N) + 1
         end
-        zψi = calculate_logbelief!(M,l,neighbours,xi0,oi,sympt,ci,ti_obs)
+        zψi = calculate_belief!(M,l,neighbours,xi0,oi,sympt,ci,ti_obs)
         Fψi += (0.5 * d - 1) * log(zψi) 
     end
     
     return (Fψi - 0.5 * F_itoj) / N 
 end
 
-#=function pop_dynamicsObsolete(M; tot_iterations = 5, tol = 1e-10, eta = 0.0, infer_lam=false, infer_gam = false,infer_sympt=false,nonlearn_iters=10)
-    N, T, F = popsize(M), M.T, zero(M.λi * M.p_sympt_inf)
-    lam_window = zeros(10)
-    gam_window = zeros(10)
-    sympt_window = zeros(10)
-    for iterations = 0:tot_iterations-1
-        wflag = mod(iterations,10)+1
-        lam_window[wflag] = M.λi |> real
-        gam_window[wflag] = M.γi |> real
-        sympt_window[wflag] = M.p_sympt_inf |> real
-        avg_old, err_old = avg_err(M.belief |> real)
-        F = sweep!(M)
-        avg_new, err_new = avg_err(M.belief |> real)
-        infer_lam = check_prior(iterations, infer_lam, lam_window, eta, nonlearn_iters)
-        infer_gam = check_prior(iterations, infer_gam, gam_window, eta, nonlearn_iters)
-        infer_sympt = check_prior(iterations, infer_sympt, sympt_window, eta, nonlearn_iters)
-        converged = check_convergenceObsolete(avg_new, err_new, avg_old, err_old, tol) 
-        #@show converged
-        #@show abs.(avg_new .- avg_old)
-        #@show (err_old .+ err_new)
-        if converged  & !infer_lam & !infer_gam & !infer_sympt #if we don't have to infer 
-            return F, iterations+1
+function logsweep!(M)
+    e = 1 #edge counter
+    N = popsize(M)
+    F_itoj = zero(M.λi * M.p_sympt_inf)
+    Fψi = zero(M.λi * M.p_sympt_inf)
+    for l = 1:N
+        # Extraction of disorder: state of individual i: xi0, delays: sij and sji
+        xi0,sij,sji,d,oi,sympt,ci,ti_obs = rand_disorder(M,M.distribution)
+        M.obs_list[l] = oi #this is stored for later estimation of AUC
+        neighbours = rand(1:N,d)
+        for m = 1:d
+            res_neigh = [neighbours[1:m-1];neighbours[m+1:end]]
+            logmaxν = calculate_logν!(M,res_neigh,xi0,oi,sympt,ci,ti_obs)
+            #from the un-normalized ν message it is possible to extract the orginal-message 
+            #normalization z_i→j 
+            # needed for the computation of the Bethe Free energy
+            r = 1.0 / log(1-M.λp)
+            sij = floor(Int,log(rand())*r) + 1
+            sji = floor(Int,log(rand())*r) + 1
+            zψij = original_normalization(M,M.ν,sji)
+            F_itoj += log(zψij) + logmaxν 
+            # Now we use the ν vector just calculated to extract the new μ.
+            # We overwrite the μ in postition μ[:,:,:,:,l]
+            update_μ!(M,e,sij,sji)  
+            e = mod(e,N) + 1
         end
-        (infer_lam) && (update_lam!(M,F,eta))
-        (infer_gam) && (update_gam!(M))
-        (infer_sympt) && (update_sympt!(M,F,eta))
+        logzψi = calculate_logbelief!(M,l,neighbours,xi0,oi,sympt,ci,ti_obs)
+        Fψi += (0.5 * d - 1) * logzψi 
     end
-    return F |> real , tot_iterations
-end=#
+    
+    return (Fψi - 0.5 * F_itoj) / N 
+end
 
 
 function pop_dynamics(M; tot_iterations = 5, tol = 1e-10, eta = 0.0, infer_lam=false, infer_gam = false,infer_sympt=false,nonlearn_iters=10)
@@ -152,6 +152,34 @@ function pop_dynamics(M; tot_iterations = 5, tol = 1e-10, eta = 0.0, infer_lam=f
         gam_window[wflag] = M.γi |> real
         sympt_window[wflag] = M.p_sympt_inf |> real
         F = sweep!(M) 
+        F_window[mod(iterations,length(F_window))+1] = (F |> real)
+        infer_lam = check_prior(iterations, infer_lam, lam_window, eta, nonlearn_iters)
+        infer_gam = check_prior(iterations, infer_gam, gam_window, eta, nonlearn_iters)
+        infer_sympt = check_prior(iterations, infer_sympt, sympt_window, eta, nonlearn_iters)
+        (iterations > length(F_window)) && (converged = check_convergence(F_window,2/sqrt(N)))
+        if converged  & !infer_lam & !infer_gam & !infer_sympt #if we don't have to infer 
+            return F_window |> real, iterations+1
+        end
+        (infer_lam) && (update_lam!(M,F,eta))
+        (infer_gam) && (update_gam!(M))
+        (infer_sympt) && (update_sympt!(M,F,eta))
+    end
+    return F_window |> real , tot_iterations
+end
+
+function logpop_dynamics(M; tot_iterations = 5, tol = 1e-10, eta = 0.0, infer_lam=false, infer_gam = false,infer_sympt=false,nonlearn_iters=10)
+    N, T, F = popsize(M), M.T, zero(M.λi * M.p_sympt_inf)
+    F_window = zeros(10)
+    converged = false
+    lam_window = zeros(10)
+    gam_window = zeros(10)
+    sympt_window = zeros(10)
+    for iterations = 0:tot_iterations-1
+        wflag = mod(iterations,10)+1
+        lam_window[wflag] = M.λi |> real
+        gam_window[wflag] = M.γi |> real
+        sympt_window[wflag] = M.p_sympt_inf |> real
+        F = logsweep!(M) 
         F_window[mod(iterations,length(F_window))+1] = (F |> real)
         infer_lam = check_prior(iterations, infer_lam, lam_window, eta, nonlearn_iters)
         infer_gam = check_prior(iterations, infer_gam, gam_window, eta, nonlearn_iters)
