@@ -1,16 +1,15 @@
 function save_values!(inf_out,M,conv,count_obs)
     marg = M.belief |> real;
-    U = energy(M)
     marg2D = reshape(sum(marg,dims=3) ./ N, T+2,T+2)
     inf_out[1] = conv[2] #number of iterations
     inf_out[2:T+2] .= avgAUC(marg,M.obs_list,count_obs=count_obs)
     inf_out[T+3 : 2*T + 3] .= avgOverlap(marg)
     inf_out[2*T + 4 : 3*T + 4] .= L1(marg2D)
     inf_out[3*T + 5 : 4*T + 5] .= MSE(marg)
-    inf_out[4*T + 6] = conv[1] |> real #free energy 
+    #inf_out[4*T + 6] = conv[1] |> real #free energy 
     inf_out[4*T + 7] = M.λi |> real 
     inf_out[4*T + 8] = M.γi |> real
-    inf_out[4*T + 9] = (U - conv[1]) |> real #entropy
+    #inf_out[4*T + 9] = (U - conv[1]) |> real #entropy
 end
 
 
@@ -22,7 +21,8 @@ function inf_vs_dil_optimal(γ, λRange, N, T, degree_dist, fr , dilRange ; tot_
         dilution = dilRange[dilcount]
         γi = γp = γ
         M = ParametricModel(N = N, T = T, γp = γp, λp = λp, γi=γi, λi=λi, fr=fr, dilution=dilution, distribution=degree_dist) ;
-        conv = pop_dynamics(M, tot_iterations = tot_iterations)
+        unif_initializ!(M)
+        conv = logpop_dynamics(M, tot_iterations = tot_iterations)
         save_values!(@view(inf_out[λcount,dilcount,:]),M,conv,count_obs)
     end
     return inf_out
@@ -36,6 +36,7 @@ function fr_vs_dil_optimal(γ, λ, N, T, degree_dist, frRange , dilRange ; tot_i
         fr = frRange[frcount]
         γi = γp = γ
         M = ParametricModel(N = N, T = T, γp = γp, λp = λp, γi=γi, λi=λi, fr=fr, dilution=dilution, distribution=degree_dist) ;
+        unif_initializ!(M)
         conv = pop_dynamics(M, tot_iterations = tot_iterations)
         save_values!(@view(inf_out[frcount,dilcount,:]),M,conv,count_obs)
     end

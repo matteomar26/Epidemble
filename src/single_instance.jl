@@ -193,3 +193,14 @@ function empirical_deg_distr(G)
     support = collect(keys(sorted_hist))
     return DiscreteNonParametric(support,p_deg)
 end
+
+function build_real_graph(edges)
+    Nvertices = maximum(edges[:,1])
+    G = SimpleGraph(Nvertices)
+    for i in 1:size(edges,1)
+        if edges[i,1] != edges[i,2]
+            add_edge!(G,edges[i,1],edges[i,2])
+        end
+    end 
+    return G
+end
